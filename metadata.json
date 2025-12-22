@@ -1,0 +1,8 @@
+{
+  "name": "Portal de Ensino de Artes",
+  "description": "Uma plataforma completa para professores de artes, oferecendo planejamentos, planos de aula e recursos pedagógicos para todos os níveis de ensino.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
