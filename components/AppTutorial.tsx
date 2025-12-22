@@ -1,11 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Apple, Chrome, Share, PlusSquare, Download, Palette, ShieldCheck, CheckCircle, ArrowDown } from 'lucide-react';
+import { Smartphone, Apple, Chrome, Share, PlusSquare, Download, Palette, ShieldCheck, CheckCircle, Package } from 'lucide-react';
 
 const AppTutorial: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
+    // Detectar se já está rodando como app
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -30,111 +36,102 @@ const AppTutorial: React.FC = () => {
           <Smartphone size={40} />
         </div>
         <h2 className="text-4xl font-extrabold text-adventist-blue dark:text-adventist-yellow mb-4">
-          Instale como um Aplicativo Real
+          Transforme em Aplicativo
         </h2>
         <p className="text-slate-500 dark:text-slate-400 text-lg max-w-2xl mx-auto">
-          Não é apenas um atalho. Ao instalar, o Portal de Artes aparecerá na sua lista oficial de aplicativos, terá um ícone limpo e abrirá sem as barras do navegador.
+          Instale o Portal de Artes para que ele apareça na sua lista oficial de aplicativos, sem barras de endereço e com ícone limpo.
         </p>
       </div>
 
-      {/* Botão de Instalação Dinâmica (Aparece se o navegador suportar) */}
-      {deferredPrompt && (
-        <div className="mb-12 bg-adventist-yellow/20 border-2 border-adventist-yellow p-8 rounded-[2.5rem] text-center animate-bounce shadow-lg">
-          <h3 className="text-xl font-bold text-adventist-blue mb-4">Seu aparelho é compatível!</h3>
-          <button 
-            onClick={handleInstallClick}
-            className="inline-flex items-center gap-3 bg-adventist-blue text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-105 active:scale-95 transition-all"
-          >
-            <Download size={24} /> Instalar Agora
-          </button>
-          <p className="mt-4 text-xs font-bold text-adventist-blue/70 uppercase">Recomendado para Android e Windows</p>
+      {isInstalled ? (
+        <div className="mb-12 bg-green-50 dark:bg-green-900/20 border-2 border-green-500 p-8 rounded-[2.5rem] text-center">
+          <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
+          <h3 className="text-xl font-bold text-green-700 dark:text-green-400">Você já está usando o Aplicativo!</h3>
+          <p className="text-slate-600 dark:text-slate-300 mt-2">Aproveite a experiência em tela cheia.</p>
         </div>
+      ) : (
+        deferredPrompt && (
+          <div className="mb-12 bg-adventist-yellow/20 border-2 border-adventist-yellow p-8 rounded-[2.5rem] text-center shadow-lg animate-pulse">
+            <h3 className="text-xl font-bold text-adventist-blue mb-4">Disponível para Instalação Direta!</h3>
+            <button 
+              onClick={handleInstallClick}
+              className="inline-flex items-center gap-3 bg-adventist-blue text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-105 active:scale-95 transition-all"
+            >
+              <Download size={24} /> Instalar Aplicativo
+            </button>
+            <p className="mt-4 text-xs font-bold text-adventist-blue/70 uppercase">Recomendado para Android e Windows</p>
+          </div>
+        )
       )}
 
       <div className="grid md:grid-cols-2 gap-8">
-        {/* Android Tutorial */}
-        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg space-y-8">
-          <div className="flex items-center gap-3 text-slate-900 dark:text-white">
-            <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl">
-              <Chrome size={24} />
+        {/* Android Section */}
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg space-y-6">
+          <div className="flex items-center gap-3">
+            <Chrome className="text-adventist-blue" size={24} />
+            <h3 className="text-xl font-bold">Android</h3>
+          </div>
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="bg-adventist-blue text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-1">1</div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Clique em <strong>"Instalar"</strong> no aviso que aparece ou no menu lateral (três pontos) do Chrome.</p>
             </div>
-            <h3 className="text-xl font-bold">Android (Chrome)</h3>
+            <div className="flex gap-4">
+              <div className="bg-adventist-blue text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-1">2</div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">O app será gerado e aparecerá na sua <strong>Lista de Aplicativos</strong> (junto ao WhatsApp).</p>
+            </div>
+            <div className="flex gap-4">
+              <div className="bg-adventist-blue text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-1">3</div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Você poderá <strong>arrastar o ícone</strong> para pastas ou para sua tela inicial.</p>
+            </div>
           </div>
-
-          <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl border-l-4 border-adventist-blue">
-            <p className="text-sm font-bold text-adventist-blue dark:text-adventist-yellow mb-2 uppercase tracking-wider">Passo 1: O Alerta</p>
-            <p className="text-slate-600 dark:text-slate-300 text-sm">
-              Ao navegar pelo site, uma janela ou barra inferior pode aparecer dizendo <strong>"Adicionar Portal de Artes à tela inicial"</strong>.
-            </p>
-          </div>
-
-          <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl border-l-4 border-adventist-blue">
-            <p className="text-sm font-bold text-adventist-blue dark:text-adventist-yellow mb-2 uppercase tracking-wider">Passo 2: Instalar</p>
-            <p className="text-slate-600 dark:text-slate-300 text-sm">
-              Toque em <strong>"Instalar"</strong>. O sistema Android criará um ícone limpo (WebAPK) que aparecerá junto aos seus outros apps.
-            </p>
-          </div>
-
-          <p className="text-xs text-slate-400 italic">
-            *Caso não apareça o alerta, use o menu de três pontos no topo do Chrome e escolha "Instalar aplicativo".
-          </p>
         </div>
 
-        {/* iPhone Tutorial */}
-        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg space-y-8">
-          <div className="flex items-center gap-3 text-slate-900 dark:text-white">
-            <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl">
-              <Apple size={24} />
+        {/* iOS Section */}
+        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-700 shadow-lg space-y-6">
+          <div className="flex items-center gap-3">
+            <Apple className="text-adventist-blue" size={24} />
+            <h3 className="text-xl font-bold">iPhone / iPad</h3>
+          </div>
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="bg-adventist-blue text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-1">1</div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Toque no ícone de <strong>Compartilhar</strong> <Share size={16} className="inline text-adventist-blue" /> no Safari.</p>
             </div>
-            <h3 className="text-xl font-bold">iPhone (Safari)</h3>
-          </div>
-
-          <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl border-l-4 border-adventist-blue">
-            <p className="text-sm font-bold text-adventist-blue dark:text-adventist-yellow mb-2 uppercase tracking-wider">Passo 1: Compartilhar</p>
-            <p className="text-slate-600 dark:text-slate-300 text-sm">
-              Toque no ícone de <strong>Compartilhar</strong> <Share size={18} className="inline text-adventist-blue" /> na barra inferior do Safari.
-            </p>
-          </div>
-
-          <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl border-l-4 border-adventist-blue">
-            <p className="text-sm font-bold text-adventist-blue dark:text-adventist-yellow mb-2 uppercase tracking-wider">Passo 2: Adicionar</p>
-            <p className="text-slate-600 dark:text-slate-300 text-sm">
-              Escolha <strong>"Adicionar à Tela de Início"</strong> <PlusSquare size={18} className="inline text-adventist-blue" />. Ele funcionará como um app real ao abrir.
-            </p>
+            <div className="flex gap-4">
+              <div className="bg-adventist-blue text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-1">2</div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Escolha <strong>"Adicionar à Tela de Início"</strong> <PlusSquare size={16} className="inline text-adventist-blue" />.</p>
+            </div>
+            <div className="flex gap-4">
+              <div className="bg-adventist-blue text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mt-1">3</div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">O Portal abrirá como um app independente, sem as barras do navegador.</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Resultado Visual */}
-      <div className="mt-16 bg-adventist-blue rounded-[3rem] p-10 text-center text-white shadow-2xl overflow-hidden relative">
-        <div className="absolute top-0 right-0 p-8 opacity-10">
-          <Palette size={200} />
+      {/* Vantagens */}
+      <div className="mt-16 bg-adventist-blue rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute -right-10 -bottom-10 opacity-10">
+          <Palette size={240} />
         </div>
-        
-        <h4 className="text-2xl font-bold mb-8">Diferença do App Instalado</h4>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="bg-white/10 p-6 rounded-3xl backdrop-blur-md border border-white/20">
+        <h4 className="text-2xl font-bold mb-8 text-center">Por que instalar?</h4>
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="text-center">
+            <Package className="mx-auto mb-4 text-adventist-yellow" size={32} />
+            <p className="font-bold mb-2 uppercase text-xs">App Nativo</p>
+            <p className="text-xs text-blue-100">Aparece na gaveta de aplicativos do celular.</p>
+          </div>
+          <div className="text-center">
             <ShieldCheck className="mx-auto mb-4 text-adventist-yellow" size={32} />
-            <p className="text-sm font-bold uppercase mb-2">Ícone Limpo</p>
-            <p className="text-xs text-blue-100">Sem o logo do navegador no canto do ícone.</p>
+            <p className="font-bold mb-2 uppercase text-xs">Ícone Limpo</p>
+            <p className="text-xs text-blue-100">Sem o logo do Chrome pendurado no ícone.</p>
           </div>
-          <div className="bg-white/10 p-6 rounded-3xl backdrop-blur-md border border-white/20">
-            <CheckCircle className="mx-auto mb-4 text-adventist-yellow" size={32} />
-            <p className="text-sm font-bold uppercase mb-2">Lista de Apps</p>
-            <p className="text-xs text-blue-100">Aparece na pesquisa de aplicativos do celular.</p>
-          </div>
-          <div className="bg-white/10 p-6 rounded-3xl backdrop-blur-md border border-white/20">
+          <div className="text-center">
             <Smartphone className="mx-auto mb-4 text-adventist-yellow" size={32} />
-            <p className="text-sm font-bold uppercase mb-2">Tela Inteira</p>
-            <p className="text-xs text-blue-100">Remove a barra de endereço e botões do navegador.</p>
+            <p className="font-bold mb-2 uppercase text-xs">Tela Cheia</p>
+            <p className="text-xs text-blue-100">Foco total no conteúdo, como um app de verdade.</p>
           </div>
-        </div>
-
-        <div className="mt-12 pt-8 border-t border-white/10">
-          <p className="text-sm italic text-blue-200">
-            Arraste o ícone para a sua tela principal ou para dentro de pastas como qualquer outro aplicativo.
-          </p>
         </div>
       </div>
     </div>
