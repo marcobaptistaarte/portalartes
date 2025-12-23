@@ -1,12 +1,12 @@
 
 {
-  "id": "portal-ensino-artes-webapp-v1",
+  "id": "/?source=pwa",
   "name": "Portal de Ensino de Artes",
   "short_name": "Portal Artes",
-  "description": "Recursos pedagógicos completos para professores de artes.",
-  "start_url": "/",
+  "description": "Recursos pedagógicos, planos de aula e curadoria de artes para professores.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "portrait",
   "background_color": "#003366",
   "theme_color": "#003366",
@@ -27,18 +27,18 @@
   ],
   "screenshots": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 640'%3E%3Crect width='320' height='640' fill='%23003366'/%3E%3Ctext x='160' y='320' fill='white' text-anchor='middle' font-family='sans-serif' font-weight='bold'%3EPortal de Artes%3C/text%3E%3C/svg%3E",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 640'%3E%3Crect width='320' height='640' fill='%23003366'/%3E%3Cg transform='translate(40, 200) scale(10)'%3E%3Cpath d='M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z' fill='none' stroke='%23FFCC00' stroke-width='1'/%3E%3C/g%3E%3Ctext x='160' y='400' fill='white' text-anchor='middle' font-family='sans-serif' font-weight='bold' font-size='20'%3EPortal de Artes%3C/text%3E%3C/svg%3E",
       "sizes": "320x640",
       "type": "image/svg+xml",
       "form_factor": "narrow",
-      "label": "Tela Inicial do Portal"
+      "label": "Interface Principal do Portal"
     },
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23003366'/%3E%3Ctext x='640' y='360' fill='white' text-anchor='middle' font-family='sans-serif' font-weight='bold' font-size='40'%3EPortal de Ensino de Artes%3C/text%3E%3C/svg%3E",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'%3E%3Crect width='1280' height='720' fill='%23003366'/%3E%3Cg transform='translate(540, 150) scale(15)'%3E%3Cpath d='M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z' fill='none' stroke='%23FFCC00' stroke-width='1'/%3E%3C/g%3E%3Ctext x='640' y='500' fill='white' text-anchor='middle' font-family='sans-serif' font-weight='bold' font-size='40'%3EPortal de Ensino de Artes%3C/text%3E%3C/svg%3E",
       "sizes": "1280x720",
       "type": "image/svg+xml",
       "form_factor": "wide",
-      "label": "Visualização Desktop"
+      "label": "Versão para Tablets e Desktop"
     }
   ]
 }
