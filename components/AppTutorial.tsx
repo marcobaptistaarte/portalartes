@@ -1,34 +1,30 @@
 
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Download, CheckCircle, Package, Info, ShieldCheck, Zap } from 'lucide-react';
+import { Smartphone, Apple, Chrome, Share, PlusSquare, Download, CheckCircle, Info, ShieldCheck } from 'lucide-react';
 
 const AppTutorial: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Detecta se já está rodando como app instalado
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       setIsInstalled(true);
     }
 
-    const handleBeforeInstall = (e: any) => {
+    const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    window.addEventListener('appinstalled', () => {
-      setIsInstalled(true);
-      setDeferredPrompt(null);
-    });
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => setIsInstalled(true));
 
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const handleInstall = async () => {
+  const handleInstallClick = async () => {
     if (!deferredPrompt) {
-      alert("O sistema está preparando os arquivos. Aguarde alguns segundos na página ou tente usar a opção 'Instalar Aplicativo' no menu do Chrome.");
+      alert("Para instalar agora, use o menu do navegador (3 pontos ou Compartilhar) e selecione 'Instalar Aplicativo' ou 'Adicionar à Tela de Início'.");
       return;
     }
     deferredPrompt.prompt();
@@ -36,71 +32,103 @@ const AppTutorial: React.FC = () => {
     if (outcome === 'accepted') setDeferredPrompt(null);
   };
 
+  const AppIconPreview = () => (
+    <div className="relative mx-auto w-32 h-32 mb-8 group">
+      <div className="absolute inset-0 bg-adventist-yellow/20 rounded-[2.5rem] blur-xl group-hover:blur-2xl transition-all"></div>
+      <div className="relative w-full h-full bg-adventist-blue rounded-[2.5rem] flex items-center justify-center shadow-2xl border-4 border-white dark:border-slate-800 overflow-hidden">
+        <svg viewBox="0 0 24 24" className="w-16 h-16 text-adventist-yellow" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+          <circle cx="12" cy="12" r="2"></circle>
+        </svg>
+      </div>
+      <div className="absolute -bottom-2 -right-2 bg-green-500 text-white p-1.5 rounded-full shadow-lg border-2 border-white">
+        <CheckCircle size={16} />
+      </div>
+    </div>
+  );
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="text-center mb-12">
-        <div className="inline-flex p-4 bg-adventist-blue text-adventist-yellow rounded-3xl mb-6 shadow-xl">
-          <Zap size={40} className="fill-adventist-yellow" />
-        </div>
-        <h2 className="text-4xl font-extrabold text-adventist-blue dark:text-adventist-yellow mb-4">
-          Instalar Aplicativo Real
+      <div className="text-center mb-16">
+        <AppIconPreview />
+        <h2 className="text-4xl font-black text-adventist-blue dark:text-adventist-yellow mb-4">
+          Instale o Aplicativo
         </h2>
-        <p className="text-slate-500 dark:text-slate-400 text-lg max-w-2xl mx-auto">
-          Diferente de um atalho, esta versão será instalada na sua biblioteca de aplicativos, sem o ícone do navegador.
+        <p className="text-slate-500 dark:text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
+          Tenha o Portal de Artes sempre à mão. Ele não ocupa memória física e funciona como um aplicativo nativo diretamente na sua gaveta de apps.
         </p>
       </div>
 
       {isInstalled ? (
-        <div className="mb-12 bg-green-50 dark:bg-green-900/20 border-2 border-green-500 p-8 rounded-[2.5rem] text-center">
+        <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-500 p-8 rounded-[2.5rem] text-center mb-16 shadow-lg">
           <CheckCircle className="mx-auto mb-4 text-green-500" size={48} />
-          <h3 className="text-xl font-bold text-green-700 dark:text-green-400">Portal Instalado com Sucesso!</h3>
-          <p className="text-slate-600 dark:text-slate-300 mt-2">Você já pode encontrá-lo na gaveta de apps do seu celular.</p>
+          <h3 className="text-xl font-bold text-green-700 dark:text-green-400">Aplicativo Instalado!</h3>
+          <p className="text-slate-600 dark:text-slate-300 mt-2">Você já pode encontrar o Portal na sua lista de aplicativos do celular.</p>
         </div>
       ) : (
-        <div className="max-w-md mx-auto mb-16">
-          {deferredPrompt ? (
-            <div className="bg-adventist-blue p-10 rounded-[2.5rem] text-center shadow-2xl border-4 border-adventist-yellow/30">
-              <Package className="mx-auto mb-6 text-adventist-yellow" size={56} />
-              <h3 className="text-2xl font-bold text-white mb-6">Pronto para Instalar</h3>
-              <button 
-                onClick={handleInstall}
-                className="w-full bg-adventist-yellow text-adventist-blue py-5 rounded-2xl font-black text-xl shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
-              >
-                <Download size={24} /> INSTALAR AGORA
-              </button>
+        <div className="grid md:grid-cols-2 gap-8 mb-16">
+          {/* Guia Android */}
+          <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 bg-adventist-blue/10 rounded-2xl">
+                <Chrome className="text-adventist-blue" size={24} />
+              </div>
+              <h3 className="text-xl font-bold">No Android</h3>
             </div>
-          ) : (
-            <div className="bg-slate-100 dark:bg-slate-900 border-2 border-dashed border-slate-300 p-10 rounded-[2.5rem] text-center">
-              <Info className="mx-auto mb-4 text-slate-400" size={40} />
-              <p className="text-slate-500 text-sm">
-                Aguardando sinal do sistema... Navegue por alguns segundos e o botão de instalação aparecerá aqui.
-              </p>
+            <ul className="space-y-6">
+              <li className="flex gap-4 items-start">
+                <div className="w-6 h-6 rounded-full bg-adventist-blue text-adventist-yellow flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Toque no botão <strong>"Instalar Agora"</strong> abaixo ou no banner do navegador.</p>
+              </li>
+              <li className="flex gap-4 items-start">
+                <div className="w-6 h-6 rounded-full bg-adventist-blue text-adventist-yellow flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">O ícone aparecerá na sua <strong>gaveta de apps</strong> (WebAPK), sem o selo do Chrome.</p>
+              </li>
+            </ul>
+            <button 
+              onClick={handleInstallClick}
+              className="w-full mt-10 bg-adventist-blue text-white py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-slate-900 transition-all active:scale-95"
+            >
+              <Download size={20} /> Instalar Agora
+            </button>
+          </div>
+
+          {/* Guia iOS */}
+          <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 bg-adventist-blue/10 rounded-2xl">
+                <Apple className="text-adventist-blue" size={24} />
+              </div>
+              <h3 className="text-xl font-bold">No iPhone (iOS)</h3>
             </div>
-          )}
+            <ul className="space-y-6">
+              <li className="flex gap-4 items-start">
+                <div className="w-6 h-6 rounded-full bg-adventist-blue text-adventist-yellow flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">No Safari, toque no botão <strong>Compartilhar</strong> <Share size={16} className="inline text-adventist-blue" />.</p>
+              </li>
+              <li className="flex gap-4 items-start">
+                <div className="w-6 h-6 rounded-full bg-adventist-blue text-adventist-yellow flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Escolha a opção <strong>"Adicionar à Tela de Início"</strong> <PlusSquare size={16} className="inline text-adventist-blue" />.</p>
+              </li>
+            </ul>
+            <div className="mt-10 p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-[10px] text-center text-slate-400 uppercase font-bold tracking-widest">
+              Processo manual do iOS
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 gap-8 mb-12">
-        <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-lg border border-slate-100">
-          <div className="flex items-center gap-3 mb-6">
-            <ShieldCheck className="text-adventist-blue" size={24} />
-            <h3 className="font-bold text-lg">Vantagens do WebAPK</h3>
+      <div className="bg-adventist-blue rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+          <div className="p-5 bg-white/10 rounded-3xl backdrop-blur-md">
+            <ShieldCheck size={48} className="text-adventist-yellow" />
           </div>
-          <ul className="space-y-4 text-sm text-slate-600 dark:text-slate-400">
-            <li className="flex gap-2"><span>•</span> Aparece na lista oficial de aplicativos do Android.</li>
-            <li className="flex gap-2"><span>•</span> Ícone limpo (sem o logo do Chrome no canto).</li>
-            <li className="flex gap-2"><span>•</span> Pode ser movido para a tela inicial ou pastas de apps.</li>
-            <li className="flex gap-2"><span>•</span> Abre instantaneamente em tela cheia (Standalone).</li>
-          </ul>
-        </div>
-        <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-lg border border-slate-100">
-          <div className="flex items-center gap-3 mb-6">
-            <Smartphone className="text-adventist-blue" size={24} />
-            <h3 className="font-bold text-lg">Como saber se instalou?</h3>
+          <div>
+            <h4 className="text-2xl font-bold mb-2">Tecnologia Segura</h4>
+            <p className="text-blue-100 leading-relaxed opacity-80">
+              O Portal utiliza tecnologia PWA (Progressive Web App). Ele é mais rápido que o site comum, consome menos bateria e não exige atualizações manuais na loja de apps.
+            </p>
           </div>
-          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            Após clicar em instalar, o Android processa a criação do pacote por alguns segundos. Verifique o progresso nas notificações do seu celular. Quando terminar, ele aparecerá na gaveta onde ficam todos os seus outros apps.
-          </p>
         </div>
       </div>
     </div>
