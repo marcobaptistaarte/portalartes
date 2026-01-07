@@ -1,58 +1,49 @@
 
 import React, { useState, useEffect } from 'react';
-import { Camera, User, School, ArrowRight } from 'lucide-react';
+import { Camera, User, School, ArrowRight, Loader2 } from 'lucide-react';
 import { MuralPost } from '../types';
+import { supabase } from '../supabaseClient';
 
 interface MuralSectionProps {
   onReadMore: (post: MuralPost) => void;
 }
 
-// Exemplos Fictícios Iniciais
-const FICTIONAL_POSTS: MuralPost[] = [
-  {
-    id: 'f-1',
-    teacherName: 'Denise Baptista',
-    schoolName: 'CAP',
-    level: 'Ensino Fundamental I',
-    grade: '4º ano',
-    workTitle: 'Mosaico com Papel de Revista',
-    description: 'Neste projeto, os alunos exploraram a técnica do mosaico utilizando apenas pequenos pedaços de revistas antigas. O objetivo foi trabalhar a coordenação motora fina e a percepção de tons cromáticos. Para executar em sala de aula, peça que os alunos desenhem uma silhueta simples e preencham com os recortes, colando-os bem próximos uns dos outros.',
-    photos: ['https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=800&q=80'],
-    date: '10/02/2025'
-  },
-  {
-    id: 'f-2',
-    teacherName: 'Marco Baptista',
-    schoolName: 'CAP',
-    level: 'Ensino Fundamental II',
-    grade: '8º ano',
-    workTitle: 'Releitura: O Grito no Cotidiano',
-    description: 'Os alunos foram desafiados a fotografar cenas do cotidiano escolar que remetessem à angústia da obra de Munch. Uma abordagem que une história da arte e fotografia digital. Para executar, utilize o celular dos próprios alunos para captar cenas reais e depois edite as cores para tons saturados e dramáticos.',
-    photos: ['https://images.unsplash.com/photo-1541963463532-d68292c34b19?auto=format&fit=crop&w=800&q=80'],
-    date: '12/02/2025'
-  },
-  {
-    id: 'f-3',
-    teacherName: 'Ana Cláudia',
-    schoolName: 'CAP',
-    level: 'Educação Infantil',
-    grade: 'Pré V',
-    workTitle: 'Escultura com Massa de Modelar Caseira',
-    description: 'Trabalho de exploração tátil focado em animais marinhos. A massa foi feita pelos próprios alunos usando farinha, sal e corante alimentício. Para executar, comece pela produção da massa para envolver os alunos no processo químico antes da modelagem artística.',
-    photos: ['https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=800&q=80'],
-    date: '15/02/2025'
-  }
-];
-
 const MuralSection: React.FC<MuralSectionProps> = ({ onReadMore }) => {
   const [posts, setPosts] = useState<MuralPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedMural = localStorage.getItem('mural_posts');
-    const customPosts = savedMural ? JSON.parse(savedMural) : [];
-    // Unindo fictícios com os postados pelo admin
-    setPosts([...FICTIONAL_POSTS, ...customPosts]);
+    const fetchMural = async () => {
+      const { data, error } = await supabase
+        .from('mural_posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        setPosts(data.map(p => ({
+          id: p.id,
+          teacherName: p.professor_nome,
+          schoolName: p.escola_nome,
+          level: p.nivel,
+          grade: p.serie,
+          workTitle: p.titulo_trabalho,
+          description: p.descricao,
+          photos: p.fotos,
+          date: new Date(p.created_at).toLocaleDateString('pt-BR')
+        })));
+      }
+      setLoading(false);
+    };
+
+    fetchMural();
   }, []);
+
+  if (loading) return (
+    <div className="py-24 flex flex-col items-center gap-4">
+      <Loader2 className="animate-spin text-adventist-blue" size={40} />
+      <p className="text-slate-500">Buscando artes incríveis...</p>
+    </div>
+  );
 
   return (
     <section className="container mx-auto px-4 py-12 animate-in fade-in duration-500">
@@ -69,7 +60,7 @@ const MuralSection: React.FC<MuralSectionProps> = ({ onReadMore }) => {
         {posts.map((post) => (
           <div key={post.id} className="bg-white dark:bg-slate-800 rounded-[2rem] overflow-hidden shadow-lg hover:shadow-2xl transition-all border border-slate-100 dark:border-slate-700 flex flex-col h-full group">
             <div className="relative aspect-video overflow-hidden">
-              <img src={post.photos[0]} alt={post.workTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <img src={post.photos[0] || 'https://images.unsplash.com/photo-1513364776144-60967b0f800f'} alt={post.workTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
               <div className="absolute top-4 left-4">
                 <span className="bg-adventist-yellow text-adventist-blue text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
                   {post.level}
@@ -87,7 +78,6 @@ const MuralSection: React.FC<MuralSectionProps> = ({ onReadMore }) => {
                 <span className="flex items-center gap-1.5"><School size={14} className="text-adventist-blue" /> {post.schoolName}</span>
               </div>
               
-              {/* Resumo de 1 frase (Snippet) */}
               <p className="text-slate-600 dark:text-slate-400 text-sm italic mb-8 line-clamp-2">
                 {post.description.split('.')[0]}.
               </p>
@@ -103,10 +93,6 @@ const MuralSection: React.FC<MuralSectionProps> = ({ onReadMore }) => {
             </div>
           </div>
         ))}
-      </div>
-
-      <div className="mt-20 py-10 text-center border-t border-slate-100 dark:border-slate-800">
-        <p className="text-slate-400 text-sm font-medium">Somente administradores podem postar no mural.</p>
       </div>
     </section>
   );
