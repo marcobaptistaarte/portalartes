@@ -82,7 +82,7 @@ const AppTutorial: React.FC = () => {
               </li>
               <li className="flex gap-4 items-start">
                 <div className="w-6 h-6 rounded-full bg-adventist-blue text-adventist-yellow flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">O ícone aparecerá na sua <strong>gaveta de apps</strong> (WebAPK), sem o selo do Chrome.</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">O ícone aparecerá na sua <strong>gaveta de apps</strong>.</p>
               </li>
             </ul>
             <button 
