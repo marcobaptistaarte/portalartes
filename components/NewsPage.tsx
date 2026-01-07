@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Newspaper, Calendar, ExternalLink, ArrowRight, Search } from 'lucide-react';
+import { Newspaper, Calendar, ExternalLink, ArrowRight, Search, Loader2 } from 'lucide-react';
 import { NewsItem } from '../types';
+import { supabase } from '../supabaseClient';
 
 interface NewsPageProps {
   onViewNews: (news: NewsItem) => void;
@@ -10,59 +11,42 @@ interface NewsPageProps {
 const NewsPage: React.FC<NewsPageProps> = ({ onViewNews }) => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('curated_news');
-    if (saved) {
-      setNews(JSON.parse(saved).reverse()); // Recentes primeiro
-    } else {
-      // Mock inicial com os pedidos do usuário e imagens simuladas de cabeçalho
-      const mock: NewsItem[] = [
-        {
-          id: 'n-internal-1',
-          title: 'Novo site para Professores de Arte é criado',
-          summary: 'O Portal de Ensino de Artes chega como uma ferramenta inovadora para auxiliar o cotidiano docente com curadoria especializada.',
-          imageUrl: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80',
-          date: '25/02/2025',
-          type: 'internal',
-          content: 'Temos o prazer de anunciar o lançamento do Portal de Ensino de Artes, uma plataforma pensada por professores para professores. Este projeto nasceu da necessidade de centralizar recursos pedagógicos de alta qualidade em um ambiente seguro, intuitivo e alinhado com valores cristãos.\n\nNesta fase inicial, o portal oferece acesso a planejamentos bimestrais, planos de aula detalhados e uma rica biblioteca de imagens para uso em sala de aula. Além disso, o "Mural de Inspirações" permite que educadores vejam resultados práticos de projetos aplicados em outras escolas, criando uma verdadeira rede de apoio e criatividade.\n\nO site continuará evoluindo com a inclusão de novos materiais e a curadoria constante de notícias do mundo das artes, garantindo que você tenha sempre o melhor conteúdo à disposição para suas aulas.'
-        },
-        {
-          id: 'n-ext-1',
-          title: 'Catálogo do Museu Histórico de Santa Catarina',
-          summary: 'Confira a publicação completa que documenta o acervo do museu e a história cultural de SC.',
-          imageUrl: 'https://images.unsplash.com/photo-1544967082-d9d25d867d66?auto=format&fit=crop&w=1200&q=80',
-          date: '22/02/2025',
-          type: 'external',
-          externalUrl: 'https://marcobaptista.com.br/catalogo-do-museu-historico-de-santa-catarina/'
-        },
-        {
-          id: 'n-ext-2',
-          title: 'Crime afeta exposições, diz curador-chefe sobre roubo em SP',
-          summary: 'Entenda como o roubo de obras de arte impacta o acesso público e a segurança das instituições culturais no Brasil.',
-          imageUrl: 'https://images.unsplash.com/photo-1576402187878-974f70c890a5?auto=format&fit=crop&w=1200&q=80',
-          date: '20/02/2025',
-          type: 'external',
-          externalUrl: 'https://www.cnnbrasil.com.br/nacional/crime-afeta-exposicoes-diz-curador-chefe-sobre-roubo-de-obras-em-sp/'
-        },
-        {
-          id: 'n-ext-3',
-          title: 'Um brinde à arte na 36ª Bienal de São Paulo',
-          summary: 'A Forbes destaca as novidades e o que esperar de um dos eventos artísticos mais importantes do mundo.',
-          imageUrl: 'https://images.unsplash.com/photo-1549490349-8643362247b5?auto=format&fit=crop&w=1200&q=80',
-          date: '15/02/2025',
-          type: 'external',
-          externalUrl: 'https://forbes.com.br/forbeslife/2025/09/um-brinde-a-arte-na-36a-bienal-de-sao-paulo/'
-        }
-      ];
-      setNews(mock);
-      localStorage.setItem('curated_news', JSON.stringify(mock));
-    }
+    const fetchNews = async () => {
+      const { data, error } = await supabase
+        .from('curated_news')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        setNews(data.map(n => ({
+          id: n.id,
+          title: n.titulo,
+          summary: n.resumo,
+          imageUrl: n.imagem_url,
+          externalUrl: n.url_externa,
+          date: n.data_postagem,
+          type: n.tipo as 'internal' | 'external'
+        })));
+      }
+      setLoading(false);
+    };
+
+    fetchNews();
   }, []);
 
   const filteredNews = news.filter(n => 
     n.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     n.summary.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) return (
+    <div className="py-24 flex flex-col items-center gap-4">
+      <Loader2 className="animate-spin text-adventist-blue" size={40} />
+      <p className="text-slate-500">Lendo as últimas notícias...</p>
+    </div>
   );
 
   return (
@@ -127,14 +111,6 @@ const NewsPage: React.FC<NewsPageProps> = ({ onViewNews }) => {
             </div>
           </div>
         ))}
-
-        {filteredNews.length === 0 && (
-          <div className="py-24 text-center">
-            <Newspaper size={64} className="mx-auto text-slate-300 mb-6" />
-            <h3 className="text-xl font-bold text-slate-700">Nenhuma notícia encontrada</h3>
-            <p className="text-slate-500">Tente buscar por outros termos.</p>
-          </div>
-        )}
       </div>
     </div>
   );
