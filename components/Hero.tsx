@@ -20,11 +20,6 @@ const Hero: React.FC = () => {
             Aqui você encontra aulas, atividades e recursos de Artes alinhados a princípios cristãos, pensados para apoiar o professor em diferentes etapas da educação. Os materiais são organizados para facilitar o planejamento, respeitar a prática docente e inspirar novas ideias no cotidiano escolar.
           </p>
         </div>
-        <div className="mt-8 flex justify-center gap-3">
-          <span className="px-3 py-1 bg-adventist-yellow text-adventist-blue text-xs font-bold rounded-full uppercase tracking-wider">Inovação</span>
-          <span className="px-3 py-1 bg-white/10 text-white text-xs font-bold rounded-full uppercase tracking-wider border border-white/20">Metodologia</span>
-          <span className="px-3 py-1 bg-white/10 text-white text-xs font-bold rounded-full uppercase tracking-wider border border-white/20">Criatividade</span>
-        </div>
       </div>
     </section>
   );
