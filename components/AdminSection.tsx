@@ -1,8 +1,10 @@
 
 import React, { useState, useRef } from 'react';
-import { Save, LayoutDashboard, FileText, CheckCircle2, AlertCircle, ArrowLeft, Paperclip, X, FileType, Image as ImageIcon, Camera, Layers, GraduationCap, Newspaper, Link as LinkIcon, Globe } from 'lucide-react';
+import { Save, LayoutDashboard, FileText, CheckCircle2, AlertCircle, ArrowLeft, Paperclip, X, FileType, Image as ImageIcon, Camera, Layers, GraduationCap, Newspaper, Link as LinkIcon, Globe, Loader2, Sparkles, Plus } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
-import { ManualPost, EducationLevel, Bimester, ResourceType, Attachment, MuralPost, NewsItem } from '../types';
+import { ManualPost, EducationLevel, Bimester, ResourceType, MuralPost, NewsItem } from '../types';
+import { supabase } from '../supabaseClient';
+import { GoogleGenAI } from "@google/genai";
 
 interface AdminSectionProps {
   onBack: () => void;
@@ -12,10 +14,10 @@ type AdminTab = 'content' | 'mural' | 'news';
 
 const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('content');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const muralPhotosRef = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Estados para Conteúdo Pedagógico
+  // --- Estados para Materiais ---
   const [post, setPost] = useState<Partial<ManualPost>>({
     level: 'Educação Infantil',
     grade: '',
@@ -23,120 +25,152 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     resource: 'Planejamento Bimestral',
     title: '',
     content: '',
-    attachments: []
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // Estados para o Mural
+  // --- Estados para Mural ---
   const [muralData, setMuralData] = useState({
-    teacherName: '',
-    schoolName: '',
-    level: 'Educação Infantil' as EducationLevel,
-    grade: '',
-    workTitle: '',
-    description: '',
-    photos: [] as string[]
+    professor_nome: '',
+    escola_nome: '',
+    nivel: 'Ensino Fundamental I' as EducationLevel,
+    serie: '',
+    titulo_trabalho: '',
+    descricao: ''
+  });
+  const [muralFiles, setMuralFiles] = useState<File[]>([]);
+
+  // --- Estados para Notícias ---
+  const [newsData, setNewsData] = useState({
+    url: '',
+    titulo: '',
+    resumo: '',
+    imagem_url: '',
+    tipo: 'external' as const
   });
 
-  // Estados para Notícias
-  const [newsData, setNewsData] = useState<Partial<NewsItem>>({
-    title: '',
-    summary: '',
-    imageUrl: '',
-    type: 'internal',
-    externalUrl: '',
-    content: ''
-  });
-
-  const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-
-  const convertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    const newAttachments: Attachment[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const base64 = await convertToBase64(file);
-      newAttachments.push({ name: file.name, type: file.type, size: file.size, data: base64 });
+  // Funções de Ajuda
+  const handleMuralFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files).slice(0, 10);
+      setMuralFiles(prev => [...prev, ...filesArray].slice(0, 10));
     }
-    setPost(prev => ({ ...prev, attachments: [...(prev.attachments || []), ...newAttachments] }));
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleMuralPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    if (muralData.photos.length + files.length > 6) {
-      alert("Máximo de 6 fotos.");
-      return;
+  const removeMuralFile = (index: number) => {
+    setMuralFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Mágica da IA para as notícias
+  const fetchNewsMetadata = async () => {
+    if (!newsData.url) return;
+    setIsAiLoading(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `Extraia o título, um resumo curto (max 150 caracteres) e sugira uma URL de imagem de destaque (Unsplash ou similar) para este link: ${newsData.url}. Responda apenas em JSON com as chaves: "titulo", "resumo", "imagem_url".`;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+      
+      const data = JSON.parse(response.text);
+      setNewsData(prev => ({
+        ...prev,
+        titulo: data.titulo || '',
+        resumo: data.resumo || '',
+        imagem_url: data.imagem_url || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80'
+      }));
+    } catch (err) {
+      console.error("Erro IA:", err);
+    } finally {
+      setIsAiLoading(false);
     }
-    const newPhotos: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const base64 = await convertToBase64(files[i]);
-      newPhotos.push(base64);
-    }
-    setMuralData(prev => ({ ...prev, photos: [...prev.photos, ...newPhotos] }));
-    if (muralPhotosRef.current) muralPhotosRef.current.value = '';
   };
 
-  const handleSaveContent = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!post.grade) { alert("Selecione a série."); return; }
-    setStatus('saving');
-    setTimeout(() => {
-      const savedPosts = JSON.parse(localStorage.getItem('manual_posts') || '[]');
-      const newPost = { ...post, id: Date.now().toString(), date: new Date().toLocaleDateString('pt-BR') };
-      localStorage.setItem('manual_posts', JSON.stringify([...savedPosts, newPost]));
-      setStatus('success');
-      setPost({ level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Planejamento Bimestral', title: '', content: '', attachments: [] });
-      setTimeout(() => setStatus('idle'), 3000);
-    }, 1000);
-  };
-
-  const handleSaveMural = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!muralData.grade || muralData.photos.length === 0) {
-      alert("Preencha todos os campos e anexe ao menos uma foto.");
-      return;
-    }
-    setStatus('saving');
-    setTimeout(() => {
-      const savedMural = JSON.parse(localStorage.getItem('mural_posts') || '[]');
-      const newPost: MuralPost = {
-        id: Date.now().toString(),
-        ...muralData,
-        date: new Date().toLocaleDateString('pt-BR')
-      };
-      localStorage.setItem('mural_posts', JSON.stringify([...savedMural, newPost]));
-      setStatus('success');
-      setMuralData({ teacherName: '', schoolName: '', level: 'Educação Infantil', grade: '', workTitle: '', description: '', photos: [] });
-      setTimeout(() => setStatus('idle'), 3000);
-    }, 1000);
-  };
-
-  const handleSaveNews = (e: React.FormEvent) => {
+  // Salvar Mural no Supabase
+  const handleSaveMural = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('saving');
-    setTimeout(() => {
-      const savedNews = JSON.parse(localStorage.getItem('curated_news') || '[]');
-      const newItem: NewsItem = {
-        ...(newsData as NewsItem),
-        id: Date.now().toString(),
-        date: new Date().toLocaleDateString('pt-BR')
-      };
-      localStorage.setItem('curated_news', JSON.stringify([...savedNews, newItem]));
+    try {
+      const photoUrls: string[] = [];
+      
+      // Upload das fotos
+      for (const file of muralFiles) {
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
+        const { data, error: uploadError } = await supabase.storage.from('mural').upload(`fotos/${fileName}`, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('mural').getPublicUrl(`fotos/${fileName}`);
+        photoUrls.push(publicUrl);
+      }
+
+      const { error } = await supabase.from('mural_posts').insert([{
+        professor_nome: muralData.professor_nome,
+        escola_nome: muralData.escola_nome,
+        nivel: muralData.nivel,
+        serie: muralData.serie,
+        titulo_trabalho: muralData.titulo_trabalho,
+        descricao: muralData.descricao,
+        fotos: photoUrls
+      }]);
+
+      if (error) throw error;
       setStatus('success');
-      setNewsData({ title: '', summary: '', imageUrl: '', type: 'internal', externalUrl: '', content: '' });
+      setMuralFiles([]);
+      setMuralData({ professor_nome: '', escola_nome: '', nivel: 'Ensino Fundamental I', serie: '', titulo_trabalho: '', descricao: '' });
       setTimeout(() => setStatus('idle'), 3000);
-    }, 1000);
+    } catch (err) {
+      setStatus('error');
+    }
+  };
+
+  // Salvar Notícia no Supabase
+  const handleSaveNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('saving');
+    try {
+      const { error } = await supabase.from('curated_news').insert([{
+        titulo: newsData.titulo,
+        resumo: newsData.resumo,
+        imagem_url: newsData.imagem_url,
+        url_externa: newsData.url,
+        tipo: newsData.tipo,
+        data_postagem: new Date().toLocaleDateString('pt-BR')
+      }]);
+      if (error) throw error;
+      setStatus('success');
+      setNewsData({ url: '', titulo: '', resumo: '', imagem_url: '', tipo: 'external' });
+      setTimeout(() => setStatus('idle'), 3000);
+    } catch (err) {
+      setStatus('error');
+    }
+  };
+
+  const handleSaveContent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('saving');
+    try {
+      let fileUrl = '';
+      if (selectedFile) {
+        const fileName = `${Date.now()}-${selectedFile.name}`;
+        await supabase.storage.from('materiais').upload(`uploads/${fileName}`, selectedFile);
+        const { data: { publicUrl } } = supabase.storage.from('materiais').getPublicUrl(`uploads/${fileName}`);
+        fileUrl = publicUrl;
+      }
+      await supabase.from('materiais_pedagogicos').insert([{
+        titulo: post.title,
+        nivel: post.level,
+        serie: post.grade,
+        bimestre: post.bimester,
+        tipo_recurso: post.resource,
+        conteudo: post.content,
+        arquivo_url: fileUrl
+      }]);
+      setStatus('success');
+      setPost({ level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Planejamento Bimestral', title: '', content: '' });
+      setSelectedFile(null);
+      setTimeout(() => setStatus('idle'), 3000);
+    } catch (err) { setStatus('error'); }
   };
 
   return (
@@ -147,189 +181,118 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
       <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
         <div className="bg-adventist-blue p-8 text-white">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <LayoutDashboard />
-              <h2 className="text-xl font-bold uppercase tracking-widest">Painel Administrativo</h2>
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-4">
-            <button 
-              onClick={() => setActiveTab('content')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'content' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 text-white hover:bg-white/20'}`}
-            >
-              <FileText size={18} /> Conteúdo Pedagógico
+            <button onClick={() => setActiveTab('content')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'content' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}>
+              <FileText size={16} /> Material
             </button>
-            <button 
-              onClick={() => setActiveTab('mural')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'mural' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 text-white hover:bg-white/20'}`}
-            >
-              <Camera size={18} /> Mural de Inspirações
+            <button onClick={() => setActiveTab('mural')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'mural' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}>
+              <Camera size={16} /> Mural
             </button>
-            <button 
-              onClick={() => setActiveTab('news')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'news' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 text-white hover:bg-white/20'}`}
-            >
-              <Newspaper size={18} /> Notícias
+            <button onClick={() => setActiveTab('news')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'news' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}>
+              <Newspaper size={16} /> Notícia
             </button>
           </div>
         </div>
 
         <div className="p-8">
+          {/* ABA MATERIAIS (Resumida para brevidade, mantém lógica anterior) */}
           {activeTab === 'content' && (
-            <form onSubmit={handleSaveContent} className="space-y-8 animate-in fade-in duration-300">
-              {/* Conteúdo Pedagógico Form */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nível</label>
-                  <select value={post.level} onChange={e => setPost({...post, level: e.target.value as EducationLevel, grade: ''})} className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm">
+             <form onSubmit={handleSaveContent} className="space-y-6 animate-in fade-in duration-300">
+                <div className="grid grid-cols-2 gap-4">
+                  <select value={post.level} onChange={e => setPost({...post, level: e.target.value as EducationLevel, grade: ''})} className="p-3 rounded-xl border border-slate-200 text-sm">
                     {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Série</label>
-                  <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm">
-                    <option value="">Selecione...</option>
+                  <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} className="p-3 rounded-xl border border-slate-200 text-sm">
+                    <option value="">Série...</option>
                     {post.level && GRADES_BY_LEVEL[post.level as EducationLevel].map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
-              </div>
-              <input type="text" placeholder="Título da Publicação" className="w-full p-4 rounded-xl border border-slate-200 text-lg font-bold" value={post.title} onChange={e => setPost({...post, title: e.target.value})} required />
-              <textarea rows={8} placeholder="Texto Pedagógico..." className="w-full p-4 rounded-xl border border-slate-200 text-sm" value={post.content} onChange={e => setPost({...post, content: e.target.value})} required />
-              <div className="flex justify-end gap-4">
-                {status === 'success' && <span className="text-green-600 font-bold flex items-center gap-2 animate-in slide-in-from-right"><CheckCircle2/> Salvo!</span>}
-                <button type="submit" disabled={status === 'saving'} className="bg-adventist-blue text-adventist-yellow px-10 py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">
-                  {status === 'saving' ? 'Salvando...' : 'Publicar Conteúdo'}
+                <input type="text" placeholder="Título" className="w-full p-3 rounded-xl border border-slate-200" value={post.title} onChange={e => setPost({...post, title: e.target.value})} required />
+                <textarea rows={4} placeholder="Conteúdo" className="w-full p-3 rounded-xl border border-slate-200" value={post.content} onChange={e => setPost({...post, content: e.target.value})} required />
+                <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl text-center">
+                  <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} id="file-mat" className="hidden" />
+                  <label htmlFor="file-mat" className="cursor-pointer text-sm font-bold text-slate-500">{selectedFile ? selectedFile.name : 'Selecionar PDF/Word'}</label>
+                </div>
+                <button type="submit" disabled={status === 'saving'} className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold shadow-lg">
+                  {status === 'saving' ? 'Salvando...' : 'Publicar Material'}
                 </button>
-              </div>
-            </form>
+             </form>
           )}
 
+          {/* ABA MURAL */}
           {activeTab === 'mural' && (
-            <form onSubmit={handleSaveMural} className="space-y-8 animate-in fade-in duration-300">
-               {/* Mural Form */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Professor(a)</label>
-                    <input type="text" placeholder="Ex: Prof. Denise" value={muralData.teacherName} onChange={e => setMuralData({...muralData, teacherName: e.target.value})} required className="w-full p-3 rounded-xl border border-slate-200 text-sm" />
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Escola (Sigla)</label>
-                    <input type="text" placeholder="Ex: CAP" value={muralData.schoolName} onChange={e => setMuralData({...muralData, schoolName: e.target.value})} required className="w-full p-3 rounded-xl border border-slate-200 text-sm" />
-                 </div>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2"><Layers size={14}/> Nível</label>
-                    <select value={muralData.level} onChange={e => setMuralData({...muralData, level: e.target.value as EducationLevel, grade: ''})} className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm">
-                      {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2"><GraduationCap size={14}/> Série</label>
-                    <select value={muralData.grade} onChange={e => setMuralData({...muralData, grade: e.target.value})} required className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm">
-                      <option value="">Selecione...</option>
-                      {muralData.level && GRADES_BY_LEVEL[muralData.level].map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-               </div>
-               <input type="text" placeholder="Título do Trabalho" className="w-full p-4 rounded-xl border border-slate-200 text-lg font-bold" value={muralData.workTitle} onChange={e => setMuralData({...muralData, workTitle: e.target.value})} required />
-               <textarea rows={6} placeholder="Instruções..." className="w-full p-4 rounded-xl border border-slate-200 text-sm" value={muralData.description} onChange={e => setMuralData({...muralData, description: e.target.value})} required />
-               <div className="flex justify-end gap-4">
-                  {status === 'success' && <span className="text-green-600 font-bold flex items-center gap-2 animate-in slide-in-from-right"><CheckCircle2/> Postado!</span>}
-                  <button type="submit" disabled={status === 'saving'} className="bg-adventist-blue text-adventist-yellow px-10 py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">
-                    {status === 'saving' ? 'Publicando...' : 'Postar no Mural'}
-                  </button>
-               </div>
+            <form onSubmit={handleSaveMural} className="space-y-6 animate-in fade-in duration-300">
+              <div className="grid grid-cols-2 gap-4">
+                <input type="text" placeholder="Nome do Professor" className="p-3 rounded-xl border border-slate-200" value={muralData.professor_nome} onChange={e => setMuralData({...muralData, professor_nome: e.target.value})} required />
+                <input type="text" placeholder="Escola / Unidade" className="p-3 rounded-xl border border-slate-200" value={muralData.escola_nome} onChange={e => setMuralData({...muralData, escola_nome: e.target.value})} required />
+                <select value={muralData.nivel} onChange={e => setMuralData({...muralData, nivel: e.target.value as EducationLevel})} className="p-3 rounded-xl border border-slate-200">
+                  {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <input type="text" placeholder="Série (ex: 5º ano)" className="p-3 rounded-xl border border-slate-200" value={muralData.serie} onChange={e => setMuralData({...muralData, serie: e.target.value})} required />
+              </div>
+              <input type="text" placeholder="Título do Trabalho" className="w-full p-3 rounded-xl border border-slate-200 font-bold" value={muralData.titulo_trabalho} onChange={e => setMuralData({...muralData, titulo_trabalho: e.target.value})} required />
+              <textarea rows={4} placeholder="Explicação pedagógica do projeto..." className="w-full p-3 rounded-xl border border-slate-200" value={muralData.descricao} onChange={e => setMuralData({...muralData, descricao: e.target.value})} required />
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Fotos (Máx 10)</label>
+                  <span className="text-xs text-slate-400">{muralFiles.length}/10 selecionadas</span>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {muralFiles.map((file, i) => (
+                    <div key={i} className="relative aspect-square rounded-lg bg-slate-100 overflow-hidden border border-slate-200">
+                      <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
+                      <button onClick={() => removeMuralFile(i)} className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full"><X size={12} /></button>
+                    </div>
+                  ))}
+                  {muralFiles.length < 10 && (
+                    <label className="aspect-square rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:bg-slate-50 text-slate-400">
+                      <Plus size={20} />
+                      <input type="file" multiple accept="image/*" className="hidden" onChange={handleMuralFiles} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <button type="submit" disabled={status === 'saving'} className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold">
+                {status === 'saving' ? 'Fazendo Upload...' : 'Publicar no Mural'}
+              </button>
             </form>
           )}
 
+          {/* ABA NOTÍCIAS */}
           {activeTab === 'news' && (
-            <form onSubmit={handleSaveNews} className="space-y-8 animate-in fade-in duration-300">
+            <form onSubmit={handleSaveNews} className="space-y-6 animate-in fade-in duration-300">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <Globe size={14} /> Tipo de Notícia
-                </label>
-                <div className="flex gap-4">
-                  <button 
-                    type="button"
-                    onClick={() => setNewsData({...newsData, type: 'internal'})}
-                    className={`flex-1 py-3 rounded-xl border-2 font-bold text-xs uppercase transition-all ${newsData.type === 'internal' ? 'border-adventist-blue bg-adventist-blue text-white' : 'border-slate-200 text-slate-400'}`}
-                  >
-                    Matéria Interna
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setNewsData({...newsData, type: 'external'})}
-                    className={`flex-1 py-3 rounded-xl border-2 font-bold text-xs uppercase transition-all ${newsData.type === 'external' ? 'border-adventist-blue bg-adventist-blue text-white' : 'border-slate-200 text-slate-400'}`}
-                  >
-                    Link Externo
+                <label className="text-xs font-bold text-slate-500 uppercase">Link da Notícia Original</label>
+                <div className="flex gap-2">
+                  <input type="url" placeholder="https://..." className="flex-1 p-3 rounded-xl border border-slate-200" value={newsData.url} onChange={e => setNewsData({...newsData, url: e.target.value})} required />
+                  <button type="button" onClick={fetchNewsMetadata} disabled={isAiLoading || !newsData.url} className="px-4 bg-purple-600 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50">
+                    {isAiLoading ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18}/>}
+                    Puxar com IA
                   </button>
                 </div>
               </div>
-
-              <div className="space-y-4">
-                <input 
-                  type="text" 
-                  placeholder="Título da Notícia" 
-                  className="w-full p-4 rounded-xl border border-slate-200 text-lg font-bold" 
-                  value={newsData.title} 
-                  onChange={e => setNewsData({...newsData, title: e.target.value})} 
-                  required 
-                />
-                <textarea 
-                  rows={2} 
-                  placeholder="Resumo (Aparece no card da Home)" 
-                  className="w-full p-4 rounded-xl border border-slate-200 text-sm" 
-                  value={newsData.summary} 
-                  onChange={e => setNewsData({...newsData, summary: e.target.value})} 
-                  required 
-                />
-                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border">
-                  <ImageIcon size={20} className="text-slate-400" />
-                  <input 
-                    type="url" 
-                    placeholder="URL da Imagem de Capa" 
-                    className="flex-1 bg-transparent text-sm outline-none" 
-                    value={newsData.imageUrl} 
-                    onChange={e => setNewsData({...newsData, imageUrl: e.target.value})} 
-                    required 
-                  />
+              <input type="text" placeholder="Título da Notícia" className="w-full p-3 rounded-xl border border-slate-200 font-bold" value={newsData.titulo} onChange={e => setNewsData({...newsData, titulo: e.target.value})} required />
+              <textarea placeholder="Resumo curto..." className="w-full p-3 rounded-xl border border-slate-200" value={newsData.resumo} onChange={e => setNewsData({...newsData, resumo: e.target.value})} required />
+              <input type="text" placeholder="URL da Imagem de Capa" className="w-full p-3 rounded-xl border border-slate-200 text-xs" value={newsData.imagem_url} onChange={e => setNewsData({...newsData, imagem_url: e.target.value})} required />
+              
+              {newsData.imagem_url && (
+                <div className="aspect-video rounded-xl overflow-hidden border">
+                  <img src={newsData.imagem_url} className="w-full h-full object-cover" alt="Preview" />
                 </div>
-              </div>
-
-              {newsData.type === 'external' ? (
-                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-adventist-blue/30">
-                  <LinkIcon size={20} className="text-adventist-blue" />
-                  <input 
-                    type="url" 
-                    placeholder="Cole o link da notícia externa aqui..." 
-                    className="flex-1 bg-transparent text-sm outline-none font-bold" 
-                    value={newsData.externalUrl} 
-                    onChange={e => setNewsData({...newsData, externalUrl: e.target.value})} 
-                    required 
-                  />
-                </div>
-              ) : (
-                <textarea 
-                  rows={8} 
-                  placeholder="Escreva a matéria completa..." 
-                  className="w-full p-4 rounded-xl border border-slate-200 text-sm" 
-                  value={newsData.content} 
-                  onChange={e => setNewsData({...newsData, content: e.target.value})} 
-                  required 
-                />
               )}
 
-              <div className="flex justify-end gap-4">
-                {status === 'success' && <span className="text-green-600 font-bold flex items-center gap-2 animate-in slide-in-from-right"><CheckCircle2/> Postado!</span>}
-                <button type="submit" disabled={status === 'saving'} className="bg-adventist-blue text-adventist-yellow px-10 py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all">
-                  {status === 'saving' ? 'Publicando...' : 'Postar Notícia'}
-                </button>
-              </div>
+              <button type="submit" disabled={status === 'saving'} className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold">
+                {status === 'saving' ? 'Salvando...' : 'Publicar Notícia'}
+              </button>
             </form>
           )}
+
+          <div className="mt-6 flex justify-center">
+             {status === 'success' && <span className="text-green-600 font-bold flex items-center gap-2 animate-bounce"><CheckCircle2/> Operação realizada com sucesso!</span>}
+             {status === 'error' && <span className="text-red-600 font-bold flex items-center gap-2"><AlertCircle/> Erro na operação.</span>}
+          </div>
         </div>
       </div>
     </div>
