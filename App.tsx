@@ -16,6 +16,7 @@ import NewsDetail from './components/NewsDetail';
 import AppTutorial from './components/AppTutorial';
 import { HomeSections } from './components/HomeSections';
 import { SelectionState, GeneratedContent, UserProfile, ManualPost, MuralPost, NewsItem } from './types';
+import { supabase } from './supabaseClient';
 
 type View = 'home' | 'about' | 'privacy' | 'contact' | 'admin' | 'mural' | 'mural-detail' | 'noticias' | 'news-detail' | 'app';
 
@@ -24,7 +25,7 @@ const App: React.FC = () => {
   const [selectedMuralPost, setSelectedMuralPost] = useState<MuralPost | null>(null);
   const [selectedNewsItem, setSelectedNewsItem] = useState<NewsItem | null>(null);
   
-  const [latestManualPosts, setLatestManualPosts] = useState<ManualPost[]>([]);
+  const [latestManualPosts, setLatestManualPosts] = useState<any[]>([]);
   const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -42,17 +43,42 @@ const App: React.FC = () => {
     resource: null
   });
 
-  const [content, setContent] = useState<GeneratedContent | null>(null);
+  const [content, setContent] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Carregar dados para home
-    const manual = JSON.parse(localStorage.getItem('manual_posts') || '[]');
-    setLatestManualPosts(manual.slice(-3).reverse());
-    
-    const news = JSON.parse(localStorage.getItem('curated_news') || '[]');
-    setLatestNews(news.slice(0, 3));
+    const fetchHomeData = async () => {
+      // Buscar Materiais Recentes
+      const { data: materials } = await supabase
+        .from('materiais_pedagogicos')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(3);
+      if (materials) setLatestManualPosts(materials);
+
+      // Buscar Notícias Recentes do Supabase
+      const { data: news } = await supabase
+        .from('curated_news')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      if (news) {
+        setLatestNews(news.map(n => ({
+          id: n.id,
+          title: n.titulo,
+          summary: n.resumo,
+          imageUrl: n.imagem_url,
+          externalUrl: n.url_externa,
+          date: n.data_postagem,
+          type: n.tipo as 'internal' | 'external',
+          content: n.conteudo
+        })));
+      }
+    };
+
+    fetchHomeData();
   }, [currentView]);
 
   useEffect(() => {
@@ -67,7 +93,7 @@ const App: React.FC = () => {
 
   const toggleDarkMode = () => setIsDarkMode(prev => !prev);
 
-  const handleUpdateSelection = useCallback((update: Partial<SelectionState>) => {
+  const handleUpdateSelection = useCallback(async (update: Partial<SelectionState>) => {
     const newState = { ...selection, ...update };
     setSelection(newState);
 
@@ -75,36 +101,37 @@ const App: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      setTimeout(() => {
-        try {
-          const manualPosts: ManualPost[] = JSON.parse(localStorage.getItem('manual_posts') || '[]');
-          const existingPost = manualPosts.find(p => 
-            p.level === newState.level && 
-            p.grade === newState.grade && 
-            p.bimester === newState.bimester && 
-            p.resource === newState.resource
-          );
+      try {
+        const { data, error: dbError } = await supabase
+          .from('materiais_pedagogicos')
+          .select('*')
+          .eq('nivel', newState.level)
+          .eq('serie', newState.grade)
+          .eq('bimestre', newState.bimester)
+          .eq('tipo_recurso', newState.resource)
+          .maybeSingle();
 
-          if (existingPost) {
-            setContent({
-              title: existingPost.title,
-              content: existingPost.content,
-              tags: ['Material Oficial', newState.level || '', newState.resource || ''],
-              attachments: existingPost.attachments
-            });
-          } else {
-            setContent({
-              title: "Conteúdo em Preparação",
-              content: `Ainda não existem materiais cadastrados para:\n\n${newState.level} - ${newState.grade}\n${newState.bimester} (${newState.resource})\n\nEstamos trabalhando para disponibilizar este conteúdo em breve. Por favor, tente selecionar outro filtro ou entre em contato com a coordenação.`,
-              tags: ['Aviso', 'Coordenação']
-            });
-          }
-        } catch (err: any) {
-          setError('Erro ao carregar o banco de dados local.');
-        } finally {
-          setIsLoading(false);
+        if (dbError) throw dbError;
+
+        if (data) {
+          setContent({
+            title: data.titulo,
+            content: data.conteudo,
+            tags: ['Material Oficial', data.nivel, data.tipo_recurso],
+            arquivo_url: data.arquivo_url
+          });
+        } else {
+          setContent({
+            title: "Conteúdo em Preparação",
+            content: `Ainda não existem materiais cadastrados para:\n\n${newState.level} - ${newState.grade}\n${newState.bimester} (${newState.resource})\n\nEstamos trabalhando para disponibilizar este conteúdo em breve.`,
+            tags: ['Aviso', 'Coordenação']
+          });
         }
-      }, 600);
+      } catch (err: any) {
+        setError('Erro ao conectar com o banco de dados.');
+      } finally {
+        setIsLoading(false);
+      }
     } else {
       setContent(null);
     }
@@ -125,18 +152,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleViewActivity = (activity: ManualPost) => {
+  const handleViewActivity = (activity: any) => {
     setSelection({
-      level: activity.level,
-      grade: activity.grade,
-      bimester: activity.bimester,
-      resource: activity.resource
+      level: activity.nivel,
+      grade: activity.serie,
+      bimester: activity.bimestre,
+      resource: activity.tipo_recurso
     });
     setContent({
-      title: activity.title,
-      content: activity.content,
-      tags: ['Material Oficial', activity.level, activity.resource],
-      attachments: activity.attachments
+      title: activity.titulo,
+      content: activity.conteudo,
+      tags: ['Material Oficial', activity.nivel, activity.tipo_recurso],
+      arquivo_url: activity.arquivo_url
     });
     setCurrentView('home');
     setTimeout(() => {
@@ -166,9 +193,22 @@ const App: React.FC = () => {
             
             {!content && (
               <HomeSections 
-                latestActivities={latestManualPosts}
+                latestActivities={latestManualPosts.map(m => ({
+                  id: m.id,
+                  level: m.nivel,
+                  grade: m.serie,
+                  bimester: m.bimestre,
+                  resource: m.tipo_recurso,
+                  title: m.titulo,
+                  content: m.conteudo,
+                  date: new Date(m.created_at).toLocaleDateString('pt-BR'),
+                  attachments: []
+                }))}
                 latestNews={latestNews}
-                onViewActivity={handleViewActivity}
+                onViewActivity={(act) => {
+                  const raw = latestManualPosts.find(p => p.id === act.id);
+                  handleViewActivity(raw);
+                }}
                 onViewNews={handleViewNews}
                 onSeeMoreNews={() => navigateTo('noticias')}
               />
