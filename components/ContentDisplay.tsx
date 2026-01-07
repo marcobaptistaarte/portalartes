@@ -1,36 +1,20 @@
 
 import React from 'react';
-import { Download, Share2, Printer, Loader2, BookCheck, FileType, FileText, Image as ImageIcon, Presentation } from 'lucide-react';
+import { Download, Share2, Printer, Loader2, BookCheck, FileType, FileText, Image as ImageIcon, Presentation, ExternalLink } from 'lucide-react';
 import { GeneratedContent, Attachment } from '../types';
 
 interface ContentDisplayProps {
-  content: GeneratedContent | null;
+  content: any | null;
   isLoading: boolean;
   error: string | null;
 }
 
 const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, error }) => {
-  const getFileIcon = (type: string) => {
-    if (type.includes('presentation') || type.includes('powerpoint')) return <Presentation size={20} />;
-    if (type.includes('image')) return <ImageIcon size={20} />;
-    if (type.includes('pdf') || type.includes('text')) return <FileText size={20} />;
-    return <FileType size={20} />;
-  };
-
-  const handleDownload = (file: Attachment) => {
-    const link = document.createElement('a');
-    link.href = file.data;
-    link.download = file.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-adventist-blue dark:text-adventist-yellow">
         <Loader2 className="animate-spin mb-4" size={48} />
-        <p className="text-lg font-medium animate-pulse">Carregando conteúdo pedagógico...</p>
+        <p className="text-lg font-medium animate-pulse">Consultando base de dados Supabase...</p>
       </div>
     );
   }
@@ -52,7 +36,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
           <BookCheck size={64} className="mx-auto text-slate-300 dark:text-slate-600 mb-6" />
           <h4 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-4">Aguardando Seleção</h4>
           <p className="text-slate-500 dark:text-slate-400">
-            Utilize os filtros acima para acessar os materiais pedagógicos preparados para a sua série e bimestre.
+            Utilize os filtros acima para acessar os materiais pedagógicos oficiais da rede.
           </p>
         </div>
       </div>
@@ -66,7 +50,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-10 border-b border-slate-100 dark:border-slate-700">
             <div>
               <div className="flex gap-2 mb-4">
-                {content.tags.map((tag) => (
+                {content.tags?.map((tag: string) => (
                   <span key={tag} className="px-2.5 py-1 bg-adventist-blue/10 dark:bg-adventist-yellow/10 text-adventist-blue dark:text-adventist-yellow text-[10px] font-bold uppercase rounded-md">
                     {tag}
                   </span>
@@ -88,36 +72,36 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
           </div>
 
           <article className="prose prose-slate dark:prose-invert max-w-none mb-12">
-            {content.content.split('\n').map((line, i) => (
+            {content.content?.split('\n').map((line: string, i: number) => (
               <p key={i} className="text-slate-600 dark:text-slate-300 text-lg leading-relaxed mb-4">
                 {line}
               </p>
             ))}
           </article>
 
-          {/* Seção de Anexos */}
-          {content.attachments && content.attachments.length > 0 && (
+          {/* Seção de Arquivo Anexo Único (Supabase) */}
+          {content.arquivo_url && (
             <div className="mt-12 pt-10 border-t border-slate-100 dark:border-slate-700">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                 <Download className="text-adventist-blue dark:text-adventist-yellow" />
-                Materiais Complementares e Anexos
+                Material para Download
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {content.attachments.map((file, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleDownload(file)}
-                    className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-700 border border-slate-100 dark:border-slate-700 rounded-2xl transition-all hover:shadow-lg hover:border-adventist-blue group text-left"
-                  >
-                    <div className="p-3 bg-white dark:bg-slate-800 text-adventist-blue dark:text-adventist-yellow rounded-xl shadow-sm group-hover:scale-110 transition-transform">
-                      {getFileIcon(file.type)}
-                    </div>
-                    <div className="overflow-hidden">
-                      <p className="text-sm font-bold truncate pr-2 text-slate-800 dark:text-slate-200">{file.name}</p>
-                      <p className="text-[10px] text-slate-400 uppercase font-medium">Clique para baixar</p>
-                    </div>
-                  </button>
-                ))}
+              <div className="max-w-sm">
+                <a
+                  href={content.arquivo_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 p-4 bg-adventist-blue/5 dark:bg-adventist-yellow/5 hover:bg-white dark:hover:bg-slate-700 border border-adventist-blue/20 dark:border-adventist-yellow/20 rounded-2xl transition-all hover:shadow-lg hover:border-adventist-blue group text-left"
+                >
+                  <div className="p-3 bg-white dark:bg-slate-800 text-adventist-blue dark:text-adventist-yellow rounded-xl shadow-sm group-hover:scale-110 transition-transform">
+                    <FileText size={24} />
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="text-sm font-bold truncate pr-2 text-slate-800 dark:text-slate-200">Clique para baixar o anexo</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-medium">Link seguro do storage</p>
+                  </div>
+                  <ExternalLink size={16} className="ml-auto text-slate-400" />
+                </a>
               </div>
             </div>
           )}
@@ -127,7 +111,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
           <p className="text-sm text-slate-400 font-medium italic">© 2025 Portal de Ensino de Artes</p>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-adventist-yellow animate-pulse"></div>
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Conteúdo Homologado</span>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Sincronizado via Supabase</span>
           </div>
         </div>
       </div>
