@@ -3,7 +3,7 @@ export type EducationLevel = 'Educação Infantil' | 'Ensino Fundamental I' | 'E
 
 export type Bimester = '1º bimestre' | '2º bimestre' | '3º bimestre' | '4º bimestre';
 
-export type ResourceType = 'Planejamento Bimestral' | 'Planos de Aula' | 'Textos Base por Conteúdo' | 'Imagens' | 'Recursos Pedagógicos';
+export type ResourceType = 'Conteúdo' | 'Plano de Aula' | 'Planejamento Bimestral' | 'Atividade' | 'Vídeo';
 
 export interface SelectionState {
   level: EducationLevel | null;
@@ -22,7 +22,7 @@ export interface GeneratedContent {
 export interface Attachment {
   name: string;
   type: string;
-  data: string; // Base64 string for simulation
+  data: string;
   size: number;
 }
 
@@ -34,7 +34,7 @@ export interface MuralPost {
   grade: string;
   workTitle: string;
   description: string;
-  photos: string[]; // Array of Base64 strings
+  photos: string[];
   date: string;
 }
 
@@ -54,6 +54,7 @@ export interface ManualPost {
   content: string;
   date: string;
   attachments: Attachment[];
+  video_url?: string;
 }
 
 export interface NewsItem {
