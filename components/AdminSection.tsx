@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Save, LayoutDashboard, FileText, CheckCircle2, AlertCircle, ArrowLeft, Paperclip, X, FileType, Image as ImageIcon, Camera, Layers, GraduationCap, Newspaper, Link as LinkIcon, Globe, Loader2, Sparkles, Plus } from 'lucide-react';
+import { Save, LayoutDashboard, FileText, CheckCircle2, AlertCircle, ArrowLeft, Paperclip, X, FileType, Image as ImageIcon, Camera, Layers, GraduationCap, Newspaper, Link as LinkIcon, Globe, Loader2, Sparkles, Plus, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType, MuralPost, NewsItem } from '../types';
 import { supabase } from '../supabaseClient';
@@ -12,10 +12,19 @@ interface AdminSectionProps {
 
 type AdminTab = 'content' | 'mural' | 'news';
 
+// SENHA MESTRA DO PORTAL
+const ADMIN_PASSWORD = 'artes2025';
+
 const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('content');
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  
+  // Estados de Autenticação
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState(false);
 
   // --- Estados para Materiais ---
   const [post, setPost] = useState<Partial<ManualPost>>({
@@ -48,6 +57,18 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     tipo: 'external' as const
   });
 
+  // Função de Login
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      setLoginError(false);
+    } else {
+      setLoginError(true);
+      setTimeout(() => setLoginError(false), 2000);
+    }
+  };
+
   // Funções de Ajuda
   const handleMuralFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -60,7 +81,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     setMuralFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Mágica da IA para as notícias
   const fetchNewsMetadata = async () => {
     if (!newsData.url) return;
     setIsAiLoading(true);
@@ -88,14 +108,11 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     }
   };
 
-  // Salvar Mural no Supabase
   const handleSaveMural = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('saving');
     try {
       const photoUrls: string[] = [];
-      
-      // Upload das fotos
       for (const file of muralFiles) {
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
         const { data, error: uploadError } = await supabase.storage.from('mural').upload(`fotos/${fileName}`, file);
@@ -103,7 +120,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         const { data: { publicUrl } } = supabase.storage.from('mural').getPublicUrl(`fotos/${fileName}`);
         photoUrls.push(publicUrl);
       }
-
       const { error } = await supabase.from('mural_posts').insert([{
         professor_nome: muralData.professor_nome,
         escola_nome: muralData.escola_nome,
@@ -113,18 +129,14 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         descricao: muralData.descricao,
         fotos: photoUrls
       }]);
-
       if (error) throw error;
       setStatus('success');
       setMuralFiles([]);
       setMuralData({ professor_nome: '', escola_nome: '', nivel: 'Ensino Fundamental I', serie: '', titulo_trabalho: '', descricao: '' });
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err) {
-      setStatus('error');
-    }
+    } catch (err) { setStatus('error'); }
   };
 
-  // Salvar Notícia no Supabase
   const handleSaveNews = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('saving');
@@ -141,9 +153,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       setStatus('success');
       setNewsData({ url: '', titulo: '', resumo: '', imagem_url: '', tipo: 'external' });
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err) {
-      setStatus('error');
-    }
+    } catch (err) { setStatus('error'); }
   };
 
   const handleSaveContent = async (e: React.FormEvent) => {
@@ -173,11 +183,74 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     } catch (err) { setStatus('error'); }
   };
 
+  // RENDERIZAÇÃO DA TELA DE LOGIN
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
+        <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold mb-8 hover:underline">
+          <ArrowLeft size={20} /> Voltar para o Portal
+        </button>
+
+        <div className={`w-full max-w-md bg-adventist-blue rounded-[3rem] p-10 shadow-2xl transition-all duration-300 ${loginError ? 'translate-x-2 bg-red-900' : ''}`}>
+          <div className="flex flex-col items-center text-center space-y-6">
+            <div className="w-20 h-20 bg-adventist-yellow rounded-[2rem] flex items-center justify-center text-adventist-blue shadow-lg">
+              <Lock size={40} />
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-white uppercase tracking-wider">Acesso Restrito</h2>
+              <p className="text-blue-100/70 text-sm">Identifique-se para gerenciar o portal</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="w-full space-y-4">
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="Digite a senha mestra"
+                  className="w-full bg-white/10 border-2 border-white/10 rounded-2xl py-4 px-6 text-white placeholder:text-white/30 focus:bg-white/20 focus:border-adventist-yellow outline-none transition-all text-center font-bold tracking-[0.3em]"
+                  autoFocus
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+
+              <button 
+                type="submit" 
+                className="w-full bg-adventist-yellow text-adventist-blue font-black py-4 rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest"
+              >
+                Acessar Painel
+              </button>
+            </form>
+
+            {loginError && (
+              <p className="text-adventist-yellow text-xs font-bold animate-pulse">Senha incorreta. Tente novamente.</p>
+            )}
+          </div>
+        </div>
+        
+        <p className="mt-8 text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">Portal de Artes • 2025</p>
+      </div>
+    );
+  }
+
+  // RENDERIZAÇÃO DO PAINEL (AUTENTICADO)
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold mb-6 hover:underline">
-        <ArrowLeft size={20} /> Voltar para o Portal
-      </button>
+    <div className="container mx-auto px-4 py-8 max-w-4xl animate-in fade-in duration-500">
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold hover:underline">
+          <ArrowLeft size={20} /> Voltar para o Portal
+        </button>
+        <div className="flex items-center gap-2 bg-green-500/10 text-green-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-green-500/20">
+          <ShieldCheck size={14} /> Modo Administrador Ativo
+        </div>
+      </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
         <div className="bg-adventist-blue p-8 text-white">
@@ -195,7 +268,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         </div>
 
         <div className="p-8">
-          {/* ABA MATERIAIS (Resumida para brevidade, mantém lógica anterior) */}
           {activeTab === 'content' && (
              <form onSubmit={handleSaveContent} className="space-y-6 animate-in fade-in duration-300">
                 <div className="grid grid-cols-2 gap-4">
@@ -219,7 +291,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
              </form>
           )}
 
-          {/* ABA MURAL */}
           {activeTab === 'mural' && (
             <form onSubmit={handleSaveMural} className="space-y-6 animate-in fade-in duration-300">
               <div className="grid grid-cols-2 gap-4">
@@ -242,7 +313,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                   {muralFiles.map((file, i) => (
                     <div key={i} className="relative aspect-square rounded-lg bg-slate-100 overflow-hidden border border-slate-200">
                       <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
-                      <button onClick={() => removeMuralFile(i)} className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full"><X size={12} /></button>
+                      <button type="button" onClick={() => removeMuralFile(i)} className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full"><X size={12} /></button>
                     </div>
                   ))}
                   {muralFiles.length < 10 && (
@@ -260,7 +331,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
             </form>
           )}
 
-          {/* ABA NOTÍCIAS */}
           {activeTab === 'news' && (
             <form onSubmit={handleSaveNews} className="space-y-6 animate-in fade-in duration-300">
               <div className="space-y-2">
