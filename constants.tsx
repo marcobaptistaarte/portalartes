@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Palette, User, School, BookOpen, Layers, FileText, Image as ImageIcon, Box } from 'lucide-react';
+import { Palette, User, School, BookOpen, Layers, FileText, Image as ImageIcon, Box, Video, PencilRuler } from 'lucide-react';
 import { EducationLevel, ResourceType } from './types';
 
 export const LEVELS: EducationLevel[] = [
@@ -20,11 +20,11 @@ export const GRADES_BY_LEVEL: Record<EducationLevel, string[]> = {
 export const BIMESTERS = ['1º bimestre', '2º bimestre', '3º bimestre', '4º bimestre'];
 
 export const RESOURCE_TYPES: { type: ResourceType; icon: React.ReactNode }[] = [
+  { type: 'Conteúdo', icon: <FileText size={18} /> },
+  { type: 'Plano de Aula', icon: <BookOpen size={18} /> },
   { type: 'Planejamento Bimestral', icon: <Layers size={18} /> },
-  { type: 'Planos de Aula', icon: <BookOpen size={18} /> },
-  { type: 'Textos Base por Conteúdo', icon: <FileText size={18} /> },
-  { type: 'Imagens', icon: <ImageIcon size={18} /> },
-  { type: 'Recursos Pedagógicos', icon: <Box size={18} /> }
+  { type: 'Atividade', icon: <PencilRuler size={18} /> },
+  { type: 'Vídeo', icon: <Video size={18} /> }
 ];
 
 export const ArtPaletteIcon = () => (
