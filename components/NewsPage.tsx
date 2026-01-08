@@ -91,7 +91,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ onViewNews }) => {
                 </span>
               </div>
               
-              <h3 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4 group-hover:text-adventist-blue transition-colors">
+              <h3 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4 group-hover:text-adventist-blue dark:group-hover:text-adventist-yellow transition-colors">
                 {n.title}
               </h3>
               
