@@ -13,7 +13,7 @@ interface AdminSectionProps {
 type AdminTab = 'content' | 'mural' | 'news';
 
 // SENHA MESTRA DO PORTAL
-const ADMIN_PASSWORD = 'artes2025';
+const ADMIN_PASSWORD = 'Schlussel01';
 
 const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('content');
