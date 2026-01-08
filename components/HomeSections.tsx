@@ -48,7 +48,7 @@ export const HomeSections: React.FC<HomeSectionsProps> = ({
                   </span>
                   <span className="text-[10px] text-slate-400 font-medium">{activity.date}</span>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3 group-hover:text-adventist-blue transition-colors">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3 group-hover:text-adventist-blue dark:group-hover:text-adventist-yellow transition-colors">
                   {activity.title}
                 </h3>
                 <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">
@@ -107,7 +107,7 @@ export const HomeSections: React.FC<HomeSectionsProps> = ({
                   <div className="flex items-center gap-2 mb-3 text-[10px] text-slate-400 font-bold uppercase">
                     <Calendar size={12} /> {news.date}
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3 line-clamp-2">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3 line-clamp-2 group-hover:text-adventist-blue dark:group-hover:text-adventist-yellow transition-colors">
                     {news.title}
                   </h3>
                   <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6 italic">
