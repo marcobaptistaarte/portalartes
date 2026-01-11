@@ -1,39 +1,18 @@
-const CACHE_NAME = 'portal-artes-v4';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+const CACHE_NAME = 'portal-artes-webapk-v1';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
+  event.waitUntil(clients.claim());
 });
 
 self.addEventListener('fetch', (event) => {
-  // Responde com o cache ou busca na rede
+  // O Chrome exige um tratador de fetch para habilitar o botão "Instalar" em vez de "Adicionar à tela inicial"
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
     })
   );
 });
