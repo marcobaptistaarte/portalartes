@@ -13,12 +13,11 @@ import MuralSection from './components/MuralSection';
 import MuralDetail from './components/MuralDetail';
 import NewsPage from './components/NewsPage';
 import NewsDetail from './components/NewsDetail';
-import AppTutorial from './components/AppTutorial';
 import { HomeSections } from './components/HomeSections';
-import { SelectionState, GeneratedContent, UserProfile, ManualPost, MuralPost, NewsItem } from './types';
+import { SelectionState, MuralPost, NewsItem } from './types';
 import { supabase } from './supabaseClient';
 
-type View = 'home' | 'about' | 'privacy' | 'contact' | 'admin' | 'mural' | 'mural-detail' | 'noticias' | 'news-detail' | 'app';
+type View = 'home' | 'about' | 'privacy' | 'contact' | 'admin' | 'mural' | 'mural-detail' | 'noticias' | 'news-detail';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
@@ -176,7 +175,6 @@ const App: React.FC = () => {
       case 'about': return <AboutSection />;
       case 'privacy': return <PrivacySection />;
       case 'contact': return <ContactSection />;
-      case 'app': return <AppTutorial />;
       case 'mural': return <MuralSection onReadMore={(post) => navigateTo('mural-detail', post)} />;
       case 'mural-detail': return selectedMuralPost ? <MuralDetail post={selectedMuralPost} onBack={() => navigateTo('mural')} /> : null;
       case 'noticias': return <NewsPage onViewNews={handleViewNews} />;
@@ -226,7 +224,6 @@ const App: React.FC = () => {
         onGoHome={() => navigateTo('home')}
         onGoMural={() => navigateTo('mural')}
         onGoNews={() => navigateTo('noticias')}
-        onGoApp={() => navigateTo('app')}
       />
       <main className="flex-grow">{renderContent()}</main>
       <footer className="bg-slate-900 text-white py-12 px-4 border-t border-slate-800">
@@ -235,7 +232,6 @@ const App: React.FC = () => {
             <button onClick={() => navigateTo('home')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'home' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Início</button>
             <button onClick={() => navigateTo('mural')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'mural' || currentView === 'mural-detail' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Mural</button>
             <button onClick={() => navigateTo('noticias')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'noticias' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Notícias</button>
-            <button onClick={() => navigateTo('app')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'app' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Aplicativo</button>
             <button onClick={() => navigateTo('about')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'about' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Sobre o portal</button>
             <button onClick={() => navigateTo('privacy')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'privacy' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Privacidade</button>
             <button onClick={() => navigateTo('contact')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'contact' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Contato</button>
