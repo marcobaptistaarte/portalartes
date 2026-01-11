@@ -15,7 +15,7 @@ const AppInstallPage: React.FC = () => {
     <div className="w-full max-w-4xl mx-auto reveal-animation space-y-12 pb-24 px-4 pt-12">
       <div className="text-center space-y-4">
         <h2 className="text-4xl md:text-6xl font-extrabold text-[#003366] dark:text-[#FFCC00]">Portal de Artes no seu celular</h2>
-        <p className="text-lg md:text-xl font-medium text-slate-500 dark:text-slate-400">Instale o portal como um aplicativo. É rápido, gratuito e facilita seu acesso aos materiais pedagógicos! 🎨</p>
+        <p className="text-lg md:text-xl font-medium text-slate-500 dark:text-slate-400">Instale o portal como um aplicativo real. É rápido, gratuito e facilita seu acesso aos materiais pedagógicos! 🎨</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -48,9 +48,10 @@ const AppInstallPage: React.FC = () => {
           <ol className="text-left space-y-4 text-sm md:text-base opacity-80 text-slate-600 dark:text-slate-300">
             <li className="flex gap-3"><span className="font-black text-[#003366] dark:text-[#FFCC00]">1.</span><span>Abra este site pelo navegador <strong>Chrome</strong>.</span></li>
             <li className="flex gap-3"><span className="font-black text-[#003366] dark:text-[#FFCC00]">2.</span><span>Toque nos <strong>três pontinhos</strong> superiores.</span></li>
-            <li className="flex gap-3"><span className="font-black text-[#003366] dark:text-[#FFCC00]">3.</span><span>Toque em <strong>"Instalar Aplicativo"</strong>.</span></li>
-            <li className="flex gap-3"><span className="font-black text-[#003366] dark:text-[#FFCC00]">4.</span><span>Confirme em <strong>"Instalar"</strong>.</span></li>
+            <li className="flex gap-3"><span className="font-black text-[#003366] dark:text-[#FFCC00]">3.</span><span>Procure pela opção <strong>"Instalar aplicativo"</strong>.</span></li>
+            <li className="flex gap-3"><span className="font-black text-[#003366] dark:text-[#FFCC00]">4.</span><span>Aguarde a instalação. Ele aparecerá na sua <strong>gaveta de apps</strong>.</span></li>
           </ol>
+          <p className="text-[10px] text-slate-400 mt-4 italic">Dica: Se aparecer apenas "Adicionar à tela inicial", aguarde alguns segundos ou recarregue a página até que o sistema identifique o aplicativo.</p>
         </div>
       </div>
     </div>
