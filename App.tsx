@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Heart } from 'lucide-react';
+import { Heart, Smartphone, X } from 'lucide-react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import FilterSection from './components/FilterSection';
@@ -13,16 +12,18 @@ import MuralSection from './components/MuralSection';
 import MuralDetail from './components/MuralDetail';
 import NewsPage from './components/NewsPage';
 import NewsDetail from './components/NewsDetail';
+import AppInstallPage from './components/AppInstallPage';
 import { HomeSections } from './components/HomeSections';
 import { SelectionState, MuralPost, NewsItem } from './types';
 import { supabase } from './supabaseClient';
 
-type View = 'home' | 'about' | 'privacy' | 'contact' | 'admin' | 'mural' | 'mural-detail' | 'noticias' | 'news-detail';
+type View = 'home' | 'about' | 'privacy' | 'contact' | 'admin' | 'mural' | 'mural-detail' | 'noticias' | 'news-detail' | 'app-install';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedMuralPost, setSelectedMuralPost] = useState<MuralPost | null>(null);
   const [selectedNewsItem, setSelectedNewsItem] = useState<NewsItem | null>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
   
   const [latestManualPosts, setLatestManualPosts] = useState<any[]>([]);
   const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
@@ -47,33 +48,43 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchHomeData = async () => {
-      // Buscar Materiais Recentes
-      const { data: materials } = await supabase
-        .from('materiais_pedagogicos')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(3);
-      if (materials) setLatestManualPosts(materials);
+    // Verificar se já está instalado ou se deve mostrar o banner
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    const bannerDismissed = localStorage.getItem('installBannerDismissed');
+    
+    if (!isStandalone && !bannerDismissed && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      setShowInstallBanner(true);
+    }
 
-      // Buscar Notícias Recentes do Supabase
-      const { data: news } = await supabase
-        .from('curated_news')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(3);
-      
-      if (news) {
-        setLatestNews(news.map(n => ({
-          id: n.id,
-          title: n.titulo,
-          summary: n.resumo,
-          imageUrl: n.imagem_url,
-          externalUrl: n.url_externa,
-          date: n.data_postagem,
-          type: n.tipo as 'internal' | 'external',
-          content: n.conteudo
-        })));
+    const fetchHomeData = async () => {
+      try {
+        const { data: materials } = await supabase
+          .from('materiais_pedagogicos')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (materials) setLatestManualPosts(materials);
+
+        const { data: news } = await supabase
+          .from('curated_news')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(3);
+        
+        if (news) {
+          setLatestNews(news.map(n => ({
+            id: n.id,
+            title: n.titulo,
+            summary: n.resumo,
+            imageUrl: n.imagem_url,
+            externalUrl: n.url_externa,
+            date: n.data_postagem,
+            type: n.tipo as 'internal' | 'external',
+            content: n.conteudo
+          })));
+        }
+      } catch (err) {
+        console.error("Error fetching home data:", err);
       }
     };
 
@@ -170,11 +181,17 @@ const App: React.FC = () => {
     }, 100);
   };
 
+  const dismissBanner = () => {
+    setShowInstallBanner(false);
+    localStorage.setItem('installBannerDismissed', 'true');
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'about': return <AboutSection />;
       case 'privacy': return <PrivacySection />;
       case 'contact': return <ContactSection />;
+      case 'app-install': return <AppInstallPage />;
       case 'mural': return <MuralSection onReadMore={(post) => navigateTo('mural-detail', post)} />;
       case 'mural-detail': return selectedMuralPost ? <MuralDetail post={selectedMuralPost} onBack={() => navigateTo('mural')} /> : null;
       case 'noticias': return <NewsPage onViewNews={handleViewNews} />;
@@ -224,38 +241,46 @@ const App: React.FC = () => {
         onGoHome={() => navigateTo('home')}
         onGoMural={() => navigateTo('mural')}
         onGoNews={() => navigateTo('noticias')}
+        onGoApp={() => navigateTo('app-install')}
       />
+
+      {/* Banner de Instalação Mobile */}
+      {showInstallBanner && (
+        <div className="fixed bottom-0 left-0 right-0 z-[60] p-4 animate-in slide-in-from-bottom-full duration-500">
+          <div className="bg-adventist-blue text-white p-4 rounded-3xl shadow-2xl flex items-center justify-between border-t border-white/10">
+            <div className="flex items-center gap-3" onClick={() => navigateTo('app-install')}>
+              <div className="p-2 bg-adventist-yellow text-adventist-blue rounded-xl">
+                <Smartphone size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-bold">Instalar como Aplicativo</p>
+                <p className="text-[10px] opacity-80">Clique aqui para ver como instalar</p>
+              </div>
+            </div>
+            <button onClick={dismissBanner} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="flex-grow">{renderContent()}</main>
       <footer className="bg-slate-900 text-white py-12 px-4 border-t border-slate-800">
         <div className="container mx-auto flex flex-col items-center text-center gap-8">
-          <div className="flex flex-wrap justify-center gap-6 md:gap-12">
+          <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-adventist-yellow">
             <button onClick={() => navigateTo('home')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'home' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Início</button>
+            <button onClick={() => navigateTo('app-install')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'app-install' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Aplicativo</button>
             <button onClick={() => navigateTo('mural')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'mural' || currentView === 'mural-detail' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Mural</button>
             <button onClick={() => navigateTo('noticias')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'noticias' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Notícias</button>
             <button onClick={() => navigateTo('about')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'about' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Sobre o portal</button>
-            <button onClick={() => navigateTo('privacy')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'privacy' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Privacidade</button>
             <button onClick={() => navigateTo('contact')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'contact' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Contato</button>
           </div>
           <div className="space-y-4">
             <p className="text-slate-400 text-sm max-w-2xl leading-relaxed flex flex-wrap items-center justify-center gap-x-1">
               <span>© 2025 Portal de Ensino de Artes. Idealizado por</span>
-              <a 
-                href="https://marcobaptista.com.br/" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-slate-300 hover:text-adventist-yellow transition-colors font-bold underline underline-offset-4 decoration-slate-600 hover:decoration-adventist-yellow"
-              >
-                Marco Baptista
-              </a>
+              <a href="https://marcobaptista.com.br/" target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-adventist-yellow transition-colors font-bold underline underline-offset-4 decoration-slate-600 hover:decoration-adventist-yellow">Marco Baptista</a>
               <span>, Desenvolvido por</span>
-              <a 
-                href="https://www.instagram.com/denny.baptista" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-slate-300 hover:text-adventist-yellow transition-colors underline underline-offset-4 decoration-slate-600 hover:decoration-adventist-yellow"
-              >
-                Denise Baptista
-              </a>
+              <a href="https://www.instagram.com/denny.baptista" target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-adventist-yellow transition-colors underline underline-offset-4 decoration-slate-600 hover:decoration-adventist-yellow">Denise Baptista</a>
               <Heart size={14} className="text-purple-500 fill-purple-500 inline-block ml-0.5" />
             </p>
             <div className="pt-4 border-t border-white/5">
@@ -268,5 +293,4 @@ const App: React.FC = () => {
   );
 };
 
-// Fix: Adding default export
 export default App;
