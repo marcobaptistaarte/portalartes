@@ -98,4 +98,5 @@ const MuralSection: React.FC<MuralSectionProps> = ({ onReadMore }) => {
   );
 };
 
+// Fix: Adding default export
 export default MuralSection;
