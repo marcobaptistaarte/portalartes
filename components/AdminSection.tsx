@@ -1,8 +1,22 @@
 
-import React, { useState, useRef } from 'react';
-import { Save, LayoutDashboard, FileText, CheckCircle2, AlertCircle, ArrowLeft, Paperclip, X, FileType, Image as ImageIcon, Camera, Layers, GraduationCap, Newspaper, Link as LinkIcon, Globe, Loader2, Sparkles, Plus, Lock, Eye, EyeOff, ShieldCheck, Video, PencilRuler, BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  FileText, 
+  CheckCircle2, 
+  AlertCircle, 
+  ArrowLeft, 
+  Camera, 
+  Newspaper, 
+  Loader2, 
+  Sparkles, 
+  Plus, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  ShieldCheck 
+} from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
-import { ManualPost, EducationLevel, Bimester, ResourceType, MuralPost, NewsItem } from '../types';
+import { ManualPost, EducationLevel, Bimester, ResourceType } from '../types';
 import { supabase } from '../supabaseClient';
 import { GoogleGenAI } from "@google/genai";
 
@@ -76,12 +90,15 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         config: { responseMimeType: "application/json" }
       });
       
-      const data = JSON.parse(response.text);
-      setPost(prev => ({
-        ...prev,
-        title: data.titulo || prev.title,
-        content: data.resumo || prev.content
-      }));
+      const text = response.text;
+      if (text) {
+        const data = JSON.parse(text);
+        setPost(prev => ({
+          ...prev,
+          title: data.titulo || prev.title,
+          content: data.resumo || prev.content
+        }));
+      }
     } catch (err) {
       console.error("Erro IA Vídeo:", err);
     } finally {
@@ -100,14 +117,21 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         contents: prompt,
         config: { responseMimeType: "application/json" }
       });
-      const data = JSON.parse(response.text);
-      setNewsData(prev => ({
-        ...prev,
-        titulo: data.titulo || '',
-        resumo: data.resumo || '',
-        imagem_url: data.imagem_url || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80'
-      }));
-    } catch (err) { console.error(err); } finally { setIsAiLoading(false); }
+      const text = response.text;
+      if (text) {
+        const data = JSON.parse(text);
+        setNewsData(prev => ({
+          ...prev,
+          titulo: data.titulo || '',
+          resumo: data.resumo || '',
+          imagem_url: data.imagem_url || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80'
+        }));
+      }
+    } catch (err) { 
+      console.error(err); 
+    } finally { 
+      setIsAiLoading(false); 
+    }
   };
 
   const handleSaveContent = async (e: React.FormEvent) => {
@@ -289,7 +313,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
               <textarea rows={4} placeholder="Explicação..." className="w-full p-3 rounded-xl border border-slate-200" value={muralData.descricao} onChange={e => setMuralData({...muralData, descricao: e.target.value})} required />
               <div className="grid grid-cols-5 gap-2">
                 {muralFiles.map((file, i) => (
-                  <div key={i} className="relative aspect-square rounded-lg bg-slate-100 overflow-hidden"><img src={URL.createObjectURL(file)} className="w-full h-full object-cover" /></div>
+                  <div key={i} className="relative aspect-square rounded-lg bg-slate-100 overflow-hidden"><img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt="Preview" /></div>
                 ))}
                 <label className="aspect-square rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-slate-50"><Plus size={20} /><input type="file" multiple accept="image/*" className="hidden" onChange={e => setMuralFiles([...muralFiles, ...Array.from(e.target.files || [])].slice(0, 10))} /></label>
               </div>
