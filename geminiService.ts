@@ -2,7 +2,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SelectionState, GeneratedContent } from "./types";
 
+/**
+ * Serviço responsável por gerar conteúdos pedagógicos utilizando a API do Gemini.
+ * Utiliza o modelo gemini-3-flash-preview para respostas rápidas e estruturadas.
+ */
 export const generateEducationalContent = async (selection: SelectionState): Promise<GeneratedContent> => {
+  // A API Key é obtida automaticamente do ambiente configurado no Vercel/Vite
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
@@ -13,8 +18,7 @@ export const generateEducationalContent = async (selection: SelectionState): Pro
     Tipo de Recurso: ${selection.resource}
 
     O conteúdo deve ser pedagógico, inspirador, prático e alinhado com as competências da BNCC (Base Nacional Comum Curricular). 
-    Se o tipo for 'Imagens', descreva detalhadamente imagens ou obras de arte que poderiam ser usadas.
-    Retorne o resultado no formato JSON especificado.
+    Retorne o resultado estritamente no formato JSON especificado.
   `;
 
   try {
@@ -39,10 +43,13 @@ export const generateEducationalContent = async (selection: SelectionState): Pro
       }
     });
 
-    const result = JSON.parse(response.text);
-    return result as GeneratedContent;
+    // A propriedade .text do SDK retorna a string JSON diretamente
+    const jsonStr = response.text;
+    if (!jsonStr) throw new Error("Resposta vazia da IA");
+    
+    return JSON.parse(jsonStr.trim()) as GeneratedContent;
   } catch (error) {
-    console.error("Erro ao gerar conteúdo:", error);
-    throw new Error("Não foi possível gerar o conteúdo pedagógico no momento.");
+    console.error("Erro ao gerar conteúdo via Gemini:", error);
+    throw new Error("Não foi possível gerar o conteúdo pedagógico no momento. Tente novamente em alguns instantes.");
   }
 };
