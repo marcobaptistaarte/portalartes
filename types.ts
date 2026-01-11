@@ -1,4 +1,3 @@
-
 export type EducationLevel = 'Educação Infantil' | 'Ensino Fundamental I' | 'Ensino Fundamental II' | 'Ensino Médio';
 
 export type Bimester = '1º bimestre' | '2º bimestre' | '3º bimestre' | '4º bimestre';
@@ -66,4 +65,20 @@ export interface NewsItem {
   imageUrl: string;
   date: string;
   type: 'internal' | 'external';
+}
+
+export interface Message {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: number;
+}
+
+export interface ArtMovement {
+  id: string;
+  name: string;
+  period: string;
+  description: string;
+  image: string;
+  keyFeatures: string[];
 }
