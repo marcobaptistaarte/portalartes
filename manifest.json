@@ -1,14 +1,17 @@
 {
-  "id": "portal-artes-pedagogico",
+  "id": "br.com.portalartes.app",
   "name": "Portal de Ensino de Artes",
   "short_name": "Portal Artes",
   "description": "Recursos pedagógicos para professores de artes.",
-  "start_url": "/",
+  "start_url": "/?utm_source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#003366",
   "theme_color": "#003366",
   "orientation": "portrait",
+  "categories": ["education", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%23003366'/%3E%3Cg transform='translate(46, 30) scale(4.2)'%3E%3Cpath d='M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z' fill='none' stroke='%23FFCC00' stroke-width='1.5'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23FFCC00'/%3E%3C/g%3E%3C/svg%3E",
