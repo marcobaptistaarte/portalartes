@@ -116,4 +116,5 @@ const NewsPage: React.FC<NewsPageProps> = ({ onViewNews }) => {
   );
 };
 
+// Fix: Adding default export
 export default NewsPage;
