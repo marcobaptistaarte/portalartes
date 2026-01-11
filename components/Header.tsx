@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Sun, Moon, Palette, Home, Camera, Newspaper, Smartphone } from 'lucide-react';
+import { Sun, Moon, Palette, Home, Camera, Newspaper } from 'lucide-react';
 
 interface HeaderProps {
   isDarkMode: boolean;
@@ -8,10 +8,9 @@ interface HeaderProps {
   onGoHome: () => void;
   onGoMural: () => void;
   onGoNews: () => void;
-  onGoApp?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ isDarkMode, toggleDarkMode, onGoHome, onGoMural, onGoNews, onGoApp }) => {
+const Header: React.FC<HeaderProps> = ({ isDarkMode, toggleDarkMode, onGoHome, onGoMural, onGoNews }) => {
   return (
     <header className="sticky top-0 z-50 bg-adventist-blue text-white shadow-lg transition-colors">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -51,13 +50,6 @@ const Header: React.FC<HeaderProps> = ({ isDarkMode, toggleDarkMode, onGoHome, o
             >
               <Newspaper size={18} />
               Notícias
-            </button>
-            <button
-              onClick={onGoApp}
-              className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider hover:text-adventist-yellow transition-colors py-2 px-3 rounded-lg hover:bg-white/5"
-            >
-              <Smartphone size={18} />
-              App
             </button>
           </nav>
 
