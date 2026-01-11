@@ -344,4 +344,5 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   );
 };
 
+// Fix: Adding default export
 export default AdminSection;
