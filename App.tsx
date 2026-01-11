@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedMuralPost, setSelectedMuralPost] = useState<MuralPost | null>(null);
   const [selectedNewsItem, setSelectedNewsItem] = useState<NewsItem | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
   const [latestManualPosts, setLatestManualPosts] = useState<any[]>([]);
   const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
@@ -47,6 +48,11 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+
     const fetchHomeData = async () => {
       try {
         const { data: materials } = await supabase
@@ -81,6 +87,16 @@ const App: React.FC = () => {
 
     fetchHomeData();
   }, []);
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   useEffect(() => {
     if (isDarkMode) {
@@ -228,6 +244,8 @@ const App: React.FC = () => {
         onGoMural={() => navigateTo('mural')}
         onGoNews={() => navigateTo('noticias')}
         onGoApp={() => navigateTo('app-install')}
+        canInstall={!!deferredPrompt}
+        onInstall={handleInstall}
       />
 
       <main className="flex-grow">{renderContent()}</main>
@@ -235,11 +253,11 @@ const App: React.FC = () => {
         <div className="container mx-auto flex flex-col items-center text-center gap-8">
           <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-adventist-yellow">
             <button onClick={() => navigateTo('home')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'home' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Início</button>
-            <button onClick={() => navigateTo('app-install')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'app-install' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Aplicativo</button>
             <button onClick={() => navigateTo('mural')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'mural' || currentView === 'mural-detail' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Mural</button>
             <button onClick={() => navigateTo('noticias')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'noticias' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Notícias</button>
             <button onClick={() => navigateTo('about')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'about' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Sobre o portal</button>
             <button onClick={() => navigateTo('contact')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'contact' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Contato</button>
+            <button onClick={() => navigateTo('app-install')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'app-install' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Aplicativo</button>
           </div>
           <div className="space-y-4">
             <p className="text-slate-400 text-sm max-w-2xl leading-relaxed flex flex-wrap items-center justify-center gap-x-1">
