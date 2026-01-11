@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Portal de Ensino de Artes</title>
     
-    <!-- Configurações PWA (Baseadas no projeto de sucesso) -->
+    <!-- Configurações PWA -->
+    <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#003366">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Portal Artes">
@@ -46,6 +48,7 @@
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
       }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
   <script type="importmap">
 {
