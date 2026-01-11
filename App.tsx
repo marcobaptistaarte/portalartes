@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [selectedMuralPost, setSelectedMuralPost] = useState<MuralPost | null>(null);
   const [selectedNewsItem, setSelectedNewsItem] = useState<NewsItem | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
   const [latestManualPosts, setLatestManualPosts] = useState<any[]>([]);
   const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
@@ -48,12 +49,20 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Verificar se já está instalado ou se deve mostrar o banner
+    // Capturar o evento de instalação para evitar o banner automático do navegador
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      
+      const bannerDismissed = localStorage.getItem('installBannerDismissed');
+      if (!bannerDismissed) {
+        setShowInstallBanner(true);
+      }
+    });
+
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-    const bannerDismissed = localStorage.getItem('installBannerDismissed');
-    
-    if (!isStandalone && !bannerDismissed && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      setShowInstallBanner(true);
+    if (isStandalone) {
+      setShowInstallBanner(false);
     }
 
     const fetchHomeData = async () => {
@@ -89,7 +98,7 @@ const App: React.FC = () => {
     };
 
     fetchHomeData();
-  }, [currentView]);
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -186,6 +195,19 @@ const App: React.FC = () => {
     localStorage.setItem('installBannerDismissed', 'true');
   };
 
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowInstallBanner(false);
+      }
+      setDeferredPrompt(null);
+    } else {
+      navigateTo('app-install');
+    }
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'about': return <AboutSection />;
@@ -244,17 +266,17 @@ const App: React.FC = () => {
         onGoApp={() => navigateTo('app-install')}
       />
 
-      {/* Banner de Instalação Mobile */}
+      {/* Banner de Instalação Mobile Melhorado */}
       {showInstallBanner && (
         <div className="fixed bottom-0 left-0 right-0 z-[60] p-4 animate-in slide-in-from-bottom-full duration-500">
           <div className="bg-adventist-blue text-white p-4 rounded-3xl shadow-2xl flex items-center justify-between border-t border-white/10">
-            <div className="flex items-center gap-3" onClick={() => navigateTo('app-install')}>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={handleInstallApp}>
               <div className="p-2 bg-adventist-yellow text-adventist-blue rounded-xl">
                 <Smartphone size={20} />
               </div>
               <div>
-                <p className="text-sm font-bold">Instalar como Aplicativo</p>
-                <p className="text-[10px] opacity-80">Clique aqui para ver como instalar</p>
+                <p className="text-sm font-bold">Instalar Aplicativo Oficial</p>
+                <p className="text-[10px] opacity-80">Toque aqui para instalar na gaveta de apps</p>
               </div>
             </div>
             <button onClick={dismissBanner} className="p-2 hover:bg-white/10 rounded-full transition-colors">
