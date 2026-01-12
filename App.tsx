@@ -257,7 +257,6 @@ const App: React.FC = () => {
             <button onClick={() => navigateTo('noticias')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'noticias' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Notícias</button>
             <button onClick={() => navigateTo('about')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'about' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Sobre o portal</button>
             <button onClick={() => navigateTo('contact')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'contact' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Contato</button>
-            <button onClick={() => navigateTo('app-install')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'app-install' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Aplicativo</button>
           </div>
           <div className="space-y-4">
             <p className="text-slate-400 text-sm max-w-2xl leading-relaxed flex flex-wrap items-center justify-center gap-x-1">
