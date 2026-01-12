@@ -25,6 +25,7 @@ export const RESOURCE_TYPES: { type: ResourceType; icon: string }[] = [
   { type: 'Conteúdo', icon: '📚' },
   { type: 'Plano de Aula', icon: '📝' },
   { type: 'Planejamento Bimestral', icon: '🗓️' },
-  { type: 'Atividade', icon: '🎨' },
+  { type: 'Planejamento Anual', icon: '📅' },
+  { type: 'Atividades', icon: '🎨' },
   { type: 'Vídeo', icon: '🎬' }
 ];
