@@ -1,7 +1,5 @@
-
 import React from 'react';
-import { Download, Share2, Printer, Loader2, BookCheck, FileType, FileText, Image as ImageIcon, Presentation, ExternalLink } from 'lucide-react';
-import { GeneratedContent, Attachment } from '../types';
+import { Download, Share2, Printer, Loader2, BookCheck, FileText, ExternalLink } from 'lucide-react';
 
 interface ContentDisplayProps {
   content: any | null;
@@ -79,7 +77,6 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
             ))}
           </article>
 
-          {/* Seção de Arquivo Anexo Único (Supabase) */}
           {content.arquivo_url && (
             <div className="mt-12 pt-10 border-t border-slate-100 dark:border-slate-700">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
@@ -108,7 +105,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
         </div>
         
         <div className="bg-slate-50 dark:bg-slate-700/50 p-6 px-12 flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 dark:border-slate-700 gap-4">
-          <p className="text-sm text-slate-400 font-medium italic">© 2025 Portal de Ensino de Artes</p>
+          <p className="text-sm text-slate-400 font-medium italic">© 2026 Portal de Ensino de Artes</p>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-adventist-yellow animate-pulse"></div>
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Sincronizado via Supabase</span>
