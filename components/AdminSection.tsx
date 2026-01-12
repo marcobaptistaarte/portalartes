@@ -116,8 +116,17 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
+    const html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
-    document.execCommand("insertText", false, text);
+
+    if (html) {
+      // Extrai apenas o fragmento de conteúdo útil, removendo metas do Office se presentes
+      const fragmentMatch = html.match(/<!--StartFragment-->([\s\S]*?)<!--EndFragment-->/);
+      const cleanHtml = fragmentMatch ? fragmentMatch[1] : html;
+      document.execCommand('insertHTML', false, cleanHtml);
+    } else {
+      document.execCommand('insertText', false, text);
+    }
   };
 
   const loadRecentMaterials = async () => {
