@@ -93,6 +93,83 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     tipo: 'external' as const
   });
 
+  // Função para converter HTML (Word) em marcação do Portal
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const html = e.clipboardData.getData('text/html');
+    if (!html) return;
+
+    // Se houver indícios de formatação rica (Word usa MsoNormal, etc)
+    if (html.includes('<b') || html.includes('<strong') || html.includes('<i') || html.includes('<u') || html.includes('<p') || html.includes('style=')) {
+      e.preventDefault();
+      
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      const convertHtmlToPortalTags = (node: Node): string => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return node.textContent || "";
+        }
+        
+        if (node.nodeType !== Node.ELEMENT_NODE) return "";
+        
+        const el = node as HTMLElement;
+        const tagName = el.tagName.toLowerCase();
+        let childrenContent = "";
+        
+        el.childNodes.forEach(child => {
+          childrenContent += convertHtmlToPortalTags(child);
+        });
+
+        if (!childrenContent.trim() && tagName !== 'br') return "";
+
+        const style = el.getAttribute('style') || "";
+        const isBold = tagName === 'b' || tagName === 'strong' || style.includes('font-weight:bold') || style.includes('font-weight: 700') || style.includes('font-weight:700');
+        const isItalic = tagName === 'i' || tagName === 'em' || style.includes('font-style:italic');
+        const isUnderline = tagName === 'u' || style.includes('text-decoration:underline');
+        const isCenter = style.includes('text-align:center') || el.getAttribute('align') === 'center';
+        const isRight = style.includes('text-align:right') || el.getAttribute('align') === 'right';
+        const isJustify = style.includes('text-align:justify') || el.getAttribute('align') === 'justify';
+
+        let result = childrenContent;
+
+        if (isBold) result = `**${result}**`;
+        if (isItalic) result = `*${result}*`;
+        if (isUnderline) result = `<u>${result}</u>`;
+        
+        if (tagName === 'h1') result = `# ${result}\n`;
+        else if (tagName === 'h2') result = `## ${result}\n`;
+        else if (tagName === 'li') result = `- ${result}\n`;
+        else if (isCenter) result = `[center]${result}[/center]\n`;
+        else if (isRight) result = `[right]${result}[/right]\n`;
+        else if (isJustify) result = `[justify]${result}[/justify]\n`;
+        else if (tagName === 'p' || tagName === 'div') result = `${result}\n`;
+        else if (tagName === 'br') result = `\n`;
+
+        return result;
+      };
+
+      let finalContent = convertHtmlToPortalTags(doc.body);
+      
+      // Limpeza de quebras de linha duplicadas causadas por elementos de bloco aninhados
+      finalContent = finalContent.replace(/\n\s*\n/g, '\n').trim();
+
+      const textarea = textAreaRef.current;
+      if (textarea) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentText = post.content || '';
+        const newText = currentText.substring(0, start) + finalContent + currentText.substring(end);
+        setPost({ ...post, content: newText });
+        
+        // Reposiciona o cursor após o texto colado
+        setTimeout(() => {
+          const newPos = start + finalContent.length;
+          textarea.setSelectionRange(newPos, newPos);
+        }, 0);
+      }
+    }
+  };
+
   // Função para aplicar formatação no textarea preservando o scroll
   const applyFormat = (tagStart: string, tagEnd: string = '') => {
     if (!textAreaRef.current) return;
@@ -485,10 +562,11 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                     <textarea 
                       ref={textAreaRef}
                       rows={8} 
-                      placeholder="Conteúdo Pedagógico..." 
+                      placeholder="Conteúdo Pedagógico... (Dica: Você pode colar textos diretamente do Word)" 
                       className="w-full p-4 rounded-b-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-adventist-blue outline-none dark:bg-slate-800 dark:text-white" 
                       value={post.content} 
                       onChange={e => setPost({...post, content: e.target.value})} 
+                      onPaste={handlePaste}
                       required 
                     />
                   </div>
