@@ -12,7 +12,8 @@ import {
   Lock, 
   Eye, 
   EyeOff, 
-  ShieldCheck 
+  ShieldCheck,
+  Info
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType } from '../types';
@@ -30,6 +31,7 @@ const ADMIN_PASSWORD = 'Schlussel01';
 const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('content');
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -141,10 +143,11 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     }
 
     setStatus('saving');
+    setErrorMessage(null);
+    
     try {
       let fileUrl = '';
       if (selectedFile) {
-        // Sanitizar nome do arquivo: remover acentos e espaços
         const sanitizedName = selectedFile.name
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
@@ -158,8 +161,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
           .upload(`uploads/${fileName}`, selectedFile);
 
         if (uploadError) {
-          console.error("Erro no Upload Storage:", uploadError);
-          throw new Error("Erro ao enviar arquivo para o Storage.");
+          throw new Error(`Erro no Storage: ${uploadError.message}. Verifique se o bucket 'materiais' existe e é público.`);
         }
 
         const { data: { publicUrl } } = supabase.storage.from('materiais').getPublicUrl(`uploads/${fileName}`);
@@ -167,27 +169,27 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       }
 
       const { error: dbError } = await supabase.from('materiais_pedagogicos').insert([{
-        titulo: post.title,
+        titulo: post.title?.trim(),
         nivel: post.level,
         serie: post.grade,
         bimestre: post.bimester,
         tipo_recurso: post.resource,
-        conteudo: post.content,
+        conteudo: post.content?.trim(),
         arquivo_url: fileUrl,
-        video_url: post.video_url
+        video_url: post.video_url?.trim() || null
       }]);
 
       if (dbError) {
-        console.error("Erro no Banco de Dados:", dbError);
-        throw dbError;
+        throw new Error(`Erro no Banco de Dados: ${dbError.message}. Verifique se as colunas e as permissões RLS estão corretas.`);
       }
 
       setStatus('success');
       setPost({ level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Conteúdo', title: '', content: '', video_url: '' });
       setSelectedFile(null);
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err) { 
-      console.error("Erro geral no salvamento:", err);
+    } catch (err: any) { 
+      console.error("Erro detalhado:", err);
+      setErrorMessage(err.message || 'Ocorreu um erro inesperado ao salvar.');
       setStatus('error'); 
     }
   };
@@ -195,6 +197,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const handleSaveMural = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('saving');
+    setErrorMessage(null);
     try {
       const photoUrls: string[] = [];
       for (const file of muralFiles) {
@@ -224,8 +227,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       setMuralFiles([]);
       setMuralData({ professor_nome: '', escola_nome: '', nivel: 'Ensino Fundamental I', serie: '', titulo_trabalho: '', descricao: '' });
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err) { 
-      console.error(err);
+    } catch (err: any) { 
+      setErrorMessage(err.message || 'Erro ao salvar no mural.');
       setStatus('error'); 
     }
   };
@@ -233,6 +236,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const handleSaveNews = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('saving');
+    setErrorMessage(null);
     try {
       const { error: dbError } = await supabase.from('curated_news').insert([{
         titulo: newsData.titulo,
@@ -248,8 +252,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       setStatus('success');
       setNewsData({ url: '', titulo: '', resumo: '', imagem_url: '', tipo: 'external' });
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err) { 
-      console.error(err);
+    } catch (err: any) { 
+      setErrorMessage(err.message || 'Erro ao salvar notícia.');
       setStatus('error'); 
     }
   };
@@ -384,9 +388,31 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
             </form>
           )}
 
-          <div className="mt-6 flex justify-center">
-             {status === 'success' && <span className="text-green-600 font-bold animate-bounce flex items-center gap-2"><CheckCircle2/> Postado com sucesso!</span>}
-             {status === 'error' && <span className="text-red-600 font-bold flex items-center gap-2"><AlertCircle/> Erro ao salvar. Verifique o console do navegador.</span>}
+          <div className="mt-6">
+             {status === 'success' && (
+               <div className="flex items-center justify-center gap-2 text-green-600 font-bold animate-bounce bg-green-50 p-3 rounded-xl border border-green-200">
+                 <CheckCircle2 size={20}/> Postado com sucesso!
+               </div>
+             )}
+             {status === 'error' && (
+               <div className="space-y-3">
+                 <div className="flex items-start gap-2 text-red-600 font-bold bg-red-50 p-4 rounded-xl border border-red-200">
+                   <AlertCircle size={20} className="shrink-0 mt-1"/>
+                   <div className="space-y-1">
+                     <p>Falha ao salvar:</p>
+                     <p className="text-xs font-mono bg-white/50 p-2 rounded border border-red-100">{errorMessage}</p>
+                   </div>
+                 </div>
+                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-[10px] text-slate-500 space-y-2">
+                    <p className="font-bold flex items-center gap-1"><Info size={12}/> POSSÍVEIS SOLUÇÕES NO SUPABASE:</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>Verifique se o bucket <strong>'materiais'</strong> foi criado no Storage e está como <strong>Public</strong>.</li>
+                      <li>Verifique se a tabela <strong>'materiais_pedagogicos'</strong> possui RLS desativado ou uma política de 'INSERT' para a função 'anon'.</li>
+                      <li>Confirme se o campo 'conteudo' é do tipo <strong>text</strong> (não varchar).</li>
+                    </ul>
+                 </div>
+               </div>
+             )}
           </div>
         </div>
       </div>
