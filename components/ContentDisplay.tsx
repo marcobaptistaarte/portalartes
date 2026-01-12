@@ -23,6 +23,9 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
     } else if (line.includes('[right]')) {
       className += " text-right";
       contentNode = (contentNode as string).replace('[right]', '').replace('[/right]', '');
+    } else if (line.includes('[justify]')) {
+      className += " text-justify";
+      contentNode = (contentNode as string).replace('[justify]', '').replace('[/justify]', '');
     }
 
     // 2. Detectar Títulos
