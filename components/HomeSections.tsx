@@ -23,12 +23,16 @@ export const HomeSections: React.FC<HomeSectionsProps> = ({
   const stripFormatting = (text: string) => {
     if (!text) return '';
     return text
-      .replace(/\[\/?(center|right|justify)\]/g, '') // Remove tags de alinhamento
-      .replace(/<u>|<\/u>/g, '')                   // Remove tags de sublinhado
-      .replace(/\*\*/g, '')                         // Remove negrito
-      .replace(/\*/g, '')                           // Remove itálico
-      .replace(/~~/g, '')                           // Remove tachado
-      .replace(/^#+\s+/gm, '')                      // Remove marcadores de título (# e ##)
+      // 1. Remove tags customizadas de alinhamento [center], [right], [justify]
+      .replace(/\[\/?(center|right|justify)\]/g, '') 
+      // 2. Remove tags de sublinhado HTML <u> </u>
+      .replace(/<\/?u>/g, '')
+      // 3. Remove caracteres de estilo Markdown: * (negrito/itálico), _ (itálico), ~ (tachado)
+      .replace(/[*_~]/g, '')
+      // 4. Remove cabeçalhos Markdown (# Título, ## Subtítulo)
+      .replace(/^#+\s+/gm, '')
+      // 5. Remove quebras de linha múltiplas por espaços para o snippet ficar linear
+      .replace(/\s+/g, ' ')
       .trim();
   };
 
