@@ -263,6 +263,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                )}
 
                <form onSubmit={handleSaveContent} className="space-y-6">
+                  {/* Linha 1: Nível e Série */}
                   <div className="grid grid-cols-2 gap-4">
                     <select value={post.level} onChange={e => setPost({...post, level: e.target.value as EducationLevel, grade: ''})} className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
                       {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
@@ -270,6 +271,16 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                     <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm" required>
                       <option value="">Série...</option>
                       {post.level && (GRADES_BY_LEVEL[post.level as EducationLevel] || []).map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Linha 2: Bimestre e Tipo de Recurso */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <select value={post.bimester} onChange={e => setPost({...post, bimester: e.target.value as Bimester})} className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
+                      {BIMESTERS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    <select value={post.resource} onChange={e => setPost({...post, resource: e.target.value as ResourceType})} className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
+                      {RESOURCE_TYPES.map(r => <option key={r.type} value={r.type}>{r.type}</option>)}
                     </select>
                   </div>
 
