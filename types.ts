@@ -2,7 +2,7 @@ export type EducationLevel = 'Educação Infantil' | 'Ensino Fundamental I' | 'E
 
 export type Bimester = '1º bimestre' | '2º bimestre' | '3º bimestre' | '4º bimestre';
 
-export type ResourceType = 'Conteúdo' | 'Plano de Aula' | 'Planejamento Bimestral' | 'Atividade' | 'Vídeo';
+export type ResourceType = 'Conteúdo' | 'Plano de Aula' | 'Planejamento Bimestral' | 'Planejamento Anual' | 'Atividades' | 'Vídeo';
 
 export interface SelectionState {
   level: EducationLevel | null;
