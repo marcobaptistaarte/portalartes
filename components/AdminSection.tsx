@@ -1,14 +1,12 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  FileText, CheckCircle2, AlertCircle, ArrowLeft, Camera, Newspaper, Loader2, Sparkles, Plus, Lock, 
-  Eye, EyeOff, ShieldCheck, Info, Edit2, X, RefreshCw, Bold, Italic, Underline, List, AlignCenter, 
+  FileText, ArrowLeft, Camera, Loader2, Plus, Lock, 
+  Eye, EyeOff, ShieldCheck, Edit2, X, RefreshCw, Bold, Italic, Underline, List, AlignCenter, 
   AlignRight, AlignJustify, Strikethrough, Heading1, Heading2, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType } from '../types';
 import { supabase } from '../supabaseClient';
-import { GoogleGenAI } from "@google/genai";
 
 interface AdminSectionProps {
   onBack: () => void;
@@ -16,12 +14,12 @@ interface AdminSectionProps {
 
 type AdminTab = 'content' | 'mural' | 'news';
 const ADMIN_PASSWORD = 'Schlussel01';
+const ADMIN_AUTH_KEY = 'portal_artes_admin_auth';
 
 const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('content');
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -34,7 +32,14 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
   const [expandedGrades, setExpandedGrades] = useState<Record<string, boolean>>({});
 
-  // Fix: Implement groupedMaterials derived from recentMaterials
+  // Verifica se já está autenticado na sessão
+  useEffect(() => {
+    const isAuth = sessionStorage.getItem(ADMIN_AUTH_KEY);
+    if (isAuth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
   const groupedMaterials = recentMaterials.reduce((acc: Record<string, any[]>, mat) => {
     const key = mat.serie || 'Outros';
     if (!acc[key]) acc[key] = [];
@@ -42,12 +47,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     return acc;
   }, {});
 
-  // Fix: Implement toggleGradeExpansion to manage UI accordion state
   const toggleGradeExpansion = (grade: string) => {
-    setExpandedGrades(prev => ({
-      ...prev,
-      [grade]: !prev[grade]
-    }));
+    setExpandedGrades(prev => ({ ...prev, [grade]: !prev[grade] }));
   };
 
   const [post, setPost] = useState<Partial<ManualPost>>({
@@ -63,9 +64,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
 
-  // --- CONVERSORES DE FORMATO ---
-  
-  // Converte Tags do Portal para HTML (para exibir no editor)
   const portalTagsToHtml = (text: string) => {
     if (!text) return "";
     return text
@@ -82,7 +80,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       .replace(/\n/g, '<br>');
   };
 
-  // Converte HTML do Editor para Tags do Portal (para salvar no banco)
   const htmlToPortalTags = (html: string) => {
     const div = document.createElement('div');
     div.innerHTML = html;
@@ -90,11 +87,9 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     const processNode = (node: Node): string => {
       if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
       if (node.nodeType !== Node.ELEMENT_NODE) return "";
-      
       const el = node as HTMLElement;
       const tag = el.tagName.toLowerCase();
       let children = Array.from(el.childNodes).map(processNode).join("");
-
       if (tag === 'strong' || tag === 'b') return `**${children}**`;
       if (tag === 'em' || tag === 'i') return `*${children}*`;
       if (tag === 'u') return `<u>${children}</u>`;
@@ -103,21 +98,15 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       if (tag === 'h2') return `## ${children}\n`;
       if (tag === 'li') return `- ${children}\n`;
       if (tag === 'br') return "\n";
-      
       const textAlign = el.style.textAlign;
       if (textAlign === 'center') return `[center]${children}[/center]`;
       if (textAlign === 'right') return `[right]${children}[/right]`;
       if (textAlign === 'justify') return `[justify]${children}[/justify]`;
-      
       if (tag === 'div' || tag === 'p') return `${children}\n`;
-      
       return children;
     };
-
     return Array.from(div.childNodes).map(processNode).join("").replace(/\n\n+/g, '\n').trim();
   };
-
-  // --- HANDLERS DO EDITOR ---
 
   const execCommand = (command: string, value: string = "") => {
     document.execCommand(command, false, value);
@@ -150,6 +139,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     e.preventDefault();
     if (passwordInput === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
+      sessionStorage.setItem(ADMIN_AUTH_KEY, 'true');
     } else {
       setLoginError(true);
       setTimeout(() => setLoginError(false), 2000);
@@ -184,12 +174,10 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const handleSaveContent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!post.grade) return alert("Selecione a Série.");
-    
     setStatus('saving');
     try {
       const contentHtml = editorRef.current?.innerHTML || "";
       const contentTags = htmlToPortalTags(contentHtml);
-      
       let fileUrl = existingFileUrl || '';
       if (selectedFile) {
         const fileName = `${Date.now()}-${selectedFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
@@ -198,7 +186,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         const { data: { publicUrl } } = supabase.storage.from('materiais').getPublicUrl(`uploads/${fileName}`);
         fileUrl = publicUrl;
       }
-
       const payload = {
         titulo: post.title?.trim(),
         nivel: post.level,
@@ -209,11 +196,9 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         arquivo_url: fileUrl,
         video_url: post.video_url?.trim() || null
       };
-
       const { error: dbErr } = editingId 
         ? await supabase.from('materiais_pedagogicos').update(payload).eq('id', editingId)
         : await supabase.from('materiais_pedagogicos').insert([payload]);
-
       if (dbErr) throw dbErr;
       setStatus('success');
       cancelEditing();
@@ -234,7 +219,10 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
             <div className="w-20 h-20 bg-adventist-yellow rounded-[2rem] flex items-center justify-center text-adventist-blue shadow-lg"><Lock size={40} /></div>
             <h2 className="text-2xl font-black text-white uppercase tracking-wider">Acesso Restrito</h2>
             <form onSubmit={handleLogin} className="w-full space-y-4">
-              <input type={showPassword ? "text" : "password"} value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder="Senha mestra" className="w-full bg-white/10 border-2 border-white/10 rounded-2xl py-4 px-6 text-white text-center font-bold outline-none focus:border-adventist-yellow" autoFocus />
+              <div className="relative">
+                <input type={showPassword ? "text" : "password"} value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder="Senha mestra" className="w-full bg-white/10 border-2 border-white/10 rounded-2xl py-4 px-6 text-white text-center font-bold outline-none focus:border-adventist-yellow" autoFocus />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+              </div>
               <button type="submit" className="w-full bg-adventist-yellow text-adventist-blue font-black py-4 rounded-2xl shadow-xl hover:scale-[1.02] transition-all uppercase">Acessar Painel</button>
             </form>
           </div>
@@ -246,8 +234,16 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl animate-in fade-in duration-500">
       <div className="flex items-center justify-between mb-6">
-        <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold hover:underline"><ArrowLeft size={20} /> Voltar</button>
-        <div className="bg-green-500/10 text-green-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase border border-green-500/20 flex items-center gap-2"><ShieldCheck size={14} /> Modo Admin Ativo</div>
+        <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold hover:underline"><ArrowLeft size={20} /> Voltar para o Portal</button>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => { sessionStorage.removeItem(ADMIN_AUTH_KEY); setIsAuthenticated(false); }}
+            className="text-[10px] font-bold text-red-500 uppercase hover:underline"
+          >
+            Sair da Sessão
+          </button>
+          <div className="bg-green-500/10 text-green-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase border border-green-500/20 flex items-center gap-2"><ShieldCheck size={14} /> Modo Admin Ativo</div>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
@@ -314,13 +310,11 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                   </button>
                </form>
 
-               {/* Lista de Materiais para Edição */}
                <div className="pt-10 border-t border-slate-100 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-8">
                     <h4 className="text-sm font-black text-adventist-blue dark:text-adventist-yellow uppercase">Posts Recentes</h4>
                     <button onClick={loadRecentMaterials} className="p-2 text-slate-400 hover:text-adventist-blue transition-colors"><RefreshCw size={18} className={isLoadingMaterials ? 'animate-spin' : ''}/></button>
                   </div>
-
                   <div className="space-y-4">
                     {Object.keys(groupedMaterials).sort().map((grade) => (
                       <div key={grade} className="bg-slate-50 dark:bg-slate-900/30 rounded-2xl overflow-hidden border">
