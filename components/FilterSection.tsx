@@ -1,13 +1,12 @@
-
 import React from 'react';
-import { ChevronRight, Filter } from 'lucide-react';
+import { ChevronRight, Filter, ArrowLeft } from 'lucide-react';
 import { 
   LEVELS, 
   GRADES_BY_LEVEL, 
   BIMESTERS, 
   RESOURCE_TYPES 
 } from '../constants';
-import { SelectionState, EducationLevel, Bimester, ResourceType } from '../types';
+import { SelectionState, EducationLevel, Bimester } from '../types';
 
 interface FilterSectionProps {
   selection: SelectionState;
@@ -18,9 +17,19 @@ const FilterSection: React.FC<FilterSectionProps> = ({ selection, onUpdate }) =>
   return (
     <section className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 py-6 md:py-8 px-4">
       <div className="container mx-auto space-y-6 md:space-y-8">
-        <div className="flex items-center gap-2 mb-2 text-adventist-blue dark:text-adventist-yellow">
-          <Filter size={20} />
-          <h3 className="font-bold text-base md:text-lg uppercase tracking-wider">Filtros de Conteúdo</h3>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow">
+            <Filter size={20} />
+            <h3 className="font-bold text-base md:text-lg uppercase tracking-wider">Filtros de Conteúdo</h3>
+          </div>
+          {(selection.level || selection.grade || selection.bimester || selection.resource) && (
+            <button 
+              onClick={() => onUpdate({ level: null, grade: null, bimester: null, resource: null })}
+              className="text-[10px] font-bold text-red-500 uppercase tracking-widest hover:underline"
+            >
+              Limpar Filtros
+            </button>
+          )}
         </div>
 
         {/* Nível de Ensino */}
@@ -46,11 +55,19 @@ const FilterSection: React.FC<FilterSectionProps> = ({ selection, onUpdate }) =>
         {/* Série / Ano */}
         {selection.level && (
           <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <label className="text-[10px] md:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              Série <ChevronRight size={14} /> {selection.level}
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] md:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                Série <ChevronRight size={14} /> {selection.level}
+              </label>
+              <button 
+                onClick={() => onUpdate({ level: null, grade: null })}
+                className="flex items-center gap-1 text-[10px] font-bold text-adventist-blue dark:text-adventist-yellow uppercase hover:underline"
+              >
+                <ArrowLeft size={12} /> Voltar Nível
+              </button>
+            </div>
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-              {GRADES_BY_LEVEL[selection.level].map((grade) => (
+              {(GRADES_BY_LEVEL[selection.level] || []).map((grade) => (
                 <button
                   key={grade}
                   onClick={() => onUpdate({ grade, bimester: null, resource: null })}
@@ -70,9 +87,17 @@ const FilterSection: React.FC<FilterSectionProps> = ({ selection, onUpdate }) =>
         {/* Bimestre */}
         {selection.grade && (
           <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <label className="text-[10px] md:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              Período <ChevronRight size={14} /> {selection.grade}
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] md:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                Período <ChevronRight size={14} /> {selection.grade}
+              </label>
+              <button 
+                onClick={() => onUpdate({ grade: null, bimester: null })}
+                className="flex items-center gap-1 text-[10px] font-bold text-adventist-blue dark:text-adventist-yellow uppercase hover:underline"
+              >
+                <ArrowLeft size={12} /> Voltar Série
+              </button>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
               {BIMESTERS.map((bim) => (
                 <button
@@ -94,9 +119,17 @@ const FilterSection: React.FC<FilterSectionProps> = ({ selection, onUpdate }) =>
         {/* Tipo de Recurso */}
         {selection.bimester && (
           <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-            <label className="text-[10px] md:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              Tipo de Recurso <ChevronRight size={14} /> {selection.bimester}
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] md:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                Tipo de Recurso <ChevronRight size={14} /> {selection.bimester}
+              </label>
+              <button 
+                onClick={() => onUpdate({ bimester: null, resource: null })}
+                className="flex items-center gap-1 text-[10px] font-bold text-adventist-blue dark:text-adventist-yellow uppercase hover:underline"
+              >
+                <ArrowLeft size={12} /> Voltar Período
+              </button>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2 md:gap-3">
               {RESOURCE_TYPES.map(({ type, icon }) => (
                 <button
@@ -108,7 +141,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({ selection, onUpdate }) =>
                       : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-adventist-blue/50 text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  <span className="shrink-0">{icon}</span>
+                  <span className="shrink-0 text-xl">{icon}</span>
                   {type}
                 </button>
               ))}
