@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
   CheckCircle2, 
@@ -13,7 +13,20 @@ import {
   Eye, 
   EyeOff, 
   ShieldCheck,
-  Info
+  Info,
+  Edit2,
+  X,
+  RefreshCw,
+  Bold,
+  Italic,
+  Underline,
+  Type,
+  List,
+  AlignCenter,
+  AlignRight,
+  Strikethrough,
+  Heading1,
+  Heading2
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType } from '../types';
@@ -37,6 +50,13 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState(false);
+  
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Estado para Edição
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
+  const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
 
   const [post, setPost] = useState<Partial<ManualPost>>({
     level: 'Educação Infantil',
@@ -48,6 +68,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     video_url: ''
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
 
   const [muralData, setMuralData] = useState({
     professor_nome: '',
@@ -67,6 +88,53 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     tipo: 'external' as const
   });
 
+  // Função para aplicar formatação no textarea
+  const applyFormat = (tagStart: string, tagEnd: string = '') => {
+    if (!textAreaRef.current) return;
+    
+    const start = textAreaRef.current.selectionStart;
+    const end = textAreaRef.current.selectionEnd;
+    const text = post.content || '';
+    const before = text.substring(0, start);
+    const selection = text.substring(start, end);
+    const after = text.substring(end);
+
+    const newText = before + tagStart + selection + tagEnd + after;
+    setPost({ ...post, content: newText });
+
+    // Re-focus e reposicionar cursor
+    setTimeout(() => {
+      if (textAreaRef.current) {
+        textAreaRef.current.focus();
+        const newPos = selection ? end + tagStart.length + tagEnd.length : start + tagStart.length;
+        textAreaRef.current.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  };
+
+  const loadRecentMaterials = async () => {
+    setIsLoadingMaterials(true);
+    try {
+      const { data, error } = await supabase
+        .from('materiais_pedagogicos')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      setRecentMaterials(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar materiais:", err);
+    } finally {
+      setIsLoadingMaterials(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'content') {
+      loadRecentMaterials();
+    }
+  }, [isAuthenticated, activeTab]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordInput === ADMIN_PASSWORD) {
@@ -76,6 +144,29 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       setLoginError(true);
       setTimeout(() => setLoginError(false), 2000);
     }
+  };
+
+  const startEditing = (material: any) => {
+    setEditingId(material.id);
+    setPost({
+      level: material.nivel,
+      grade: material.serie,
+      bimester: material.bimestre,
+      resource: material.tipo_recurso,
+      title: material.titulo,
+      content: material.conteudo,
+      video_url: material.video_url || ''
+    });
+    setExistingFileUrl(material.arquivo_url);
+    setSelectedFile(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setPost({ level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Conteúdo', title: '', content: '', video_url: '' });
+    setSelectedFile(null);
+    setExistingFileUrl(null);
   };
 
   const fetchVideoMetadata = async () => {
@@ -146,7 +237,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     setErrorMessage(null);
     
     try {
-      let fileUrl = '';
+      let fileUrl = existingFileUrl || '';
+      
       if (selectedFile) {
         const sanitizedName = selectedFile.name
           .normalize('NFD')
@@ -161,14 +253,14 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
           .upload(`uploads/${fileName}`, selectedFile);
 
         if (uploadError) {
-          throw new Error(`Erro no Storage: ${uploadError.message}. Verifique se o bucket 'materiais' existe e é público.`);
+          throw new Error(`Erro no Storage: ${uploadError.message}.`);
         }
 
         const { data: { publicUrl } } = supabase.storage.from('materiais').getPublicUrl(`uploads/${fileName}`);
         fileUrl = publicUrl;
       }
 
-      const { error: dbError } = await supabase.from('materiais_pedagogicos').insert([{
+      const payload = {
         titulo: post.title?.trim(),
         nivel: post.level,
         serie: post.grade,
@@ -177,19 +269,32 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         conteudo: post.content?.trim(),
         arquivo_url: fileUrl,
         video_url: post.video_url?.trim() || null
-      }]);
+      };
 
-      if (dbError) {
-        throw new Error(`Erro no Banco de Dados: ${dbError.message}. Verifique se as colunas e as permissões RLS estão corretas.`);
+      let dbError;
+      if (editingId) {
+        const { error } = await supabase
+          .from('materiais_pedagogicos')
+          .update(payload)
+          .eq('id', editingId);
+        dbError = error;
+      } else {
+        const { error } = await supabase.from('materiais_pedagogicos').insert([payload]);
+        dbError = error;
       }
+
+      if (dbError) throw dbError;
 
       setStatus('success');
       setPost({ level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Conteúdo', title: '', content: '', video_url: '' });
       setSelectedFile(null);
+      setEditingId(null);
+      setExistingFileUrl(null);
+      loadRecentMaterials();
       setTimeout(() => setStatus('idle'), 3000);
     } catch (err: any) { 
       console.error("Erro detalhado:", err);
-      setErrorMessage(err.message || 'Ocorreu um erro inesperado ao salvar.');
+      setErrorMessage(err.message || 'Erro ao salvar.');
       setStatus('error'); 
     }
   };
@@ -228,7 +333,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       setMuralData({ professor_nome: '', escola_nome: '', nivel: 'Ensino Fundamental I', serie: '', titulo_trabalho: '', descricao: '' });
       setTimeout(() => setStatus('idle'), 3000);
     } catch (err: any) { 
-      setErrorMessage(err.message || 'Erro ao salvar no mural.');
+      setErrorMessage(err.message || 'Erro ao salvar mural.');
       setStatus('error'); 
     }
   };
@@ -290,129 +395,147 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
-        <div className="bg-adventist-blue p-8 text-white flex gap-4">
-          <button onClick={() => setActiveTab('content')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'content' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}><FileText size={16} /> Material</button>
-          <button onClick={() => setActiveTab('mural')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'mural' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}><Camera size={16} /> Mural</button>
-          <button onClick={() => setActiveTab('news')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'news' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}><Newspaper size={16} /> Notícia</button>
+        <div className="bg-adventist-blue p-8 text-white flex gap-4 overflow-x-auto no-scrollbar">
+          <button onClick={() => setActiveTab('content')} className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'content' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}><FileText size={16} /> Material</button>
+          <button onClick={() => setActiveTab('mural')} className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'mural' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}><Camera size={16} /> Mural</button>
+          <button onClick={() => setActiveTab('news')} className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'news' ? 'bg-adventist-yellow text-adventist-blue' : 'bg-white/10 hover:bg-white/20'}`}><Newspaper size={16} /> Notícia</button>
         </div>
 
         <div className="p-8">
           {activeTab === 'content' && (
-             <form onSubmit={handleSaveContent} className="space-y-6 animate-in fade-in duration-300">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Nível</label>
-                    <select value={post.level} onChange={e => setPost({...post, level: e.target.value as EducationLevel, grade: ''})} className="w-full p-3 rounded-xl border border-slate-200 text-sm">
-                      {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Série</label>
-                    <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 text-sm" required>
-                      <option value="">Selecione...</option>
-                      {post.level && (GRADES_BY_LEVEL[post.level as EducationLevel] || []).map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Bimestre</label>
-                    <select value={post.bimester} onChange={e => setPost({...post, bimester: e.target.value as Bimester})} className="w-full p-3 rounded-xl border border-slate-200 text-sm">
-                      {BIMESTERS.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Tipo de Material</label>
-                    <select value={post.resource} onChange={e => setPost({...post, resource: e.target.value as ResourceType})} className="w-full p-3 rounded-xl border border-slate-200 text-sm">
-                      {RESOURCE_TYPES.map(r => <option key={r.type} value={r.type}>{r.type}</option>)}
-                    </select>
-                  </div>
-                </div>
+             <div className="space-y-12">
+               {editingId && (
+                 <div className="bg-adventist-yellow/10 border-2 border-adventist-yellow p-4 rounded-2xl flex items-center justify-between animate-in slide-in-from-top-4">
+                    <div className="flex items-center gap-3">
+                      <Edit2 className="text-adventist-blue" size={24}/>
+                      <div>
+                        <p className="font-black text-adventist-blue uppercase text-xs">Editando Material</p>
+                        <p className="text-[10px] text-slate-500">ID: {editingId}</p>
+                      </div>
+                    </div>
+                    <button onClick={cancelEditing} className="p-2 hover:bg-red-100 text-red-600 rounded-full transition-colors"><X size={20}/></button>
+                 </div>
+               )}
 
-                {post.resource === 'Vídeo' && (
-                  <div className="space-y-2 animate-in slide-in-from-top-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Link do Vídeo (YouTube/Vimeo)</label>
-                    <div className="flex gap-2">
-                      <input type="url" placeholder="https://..." className="flex-1 p-3 rounded-xl border border-slate-200" value={post.video_url} onChange={e => setPost({...post, video_url: e.target.value})} />
-                      <button type="button" onClick={fetchVideoMetadata} disabled={isAiLoading || !post.video_url} className="px-4 bg-purple-600 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50">
-                        {isAiLoading ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18}/>} Mágica com IA
-                      </button>
+               <form onSubmit={handleSaveContent} className="space-y-6 animate-in fade-in duration-300">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Nível</label>
+                      <select value={post.level} onChange={e => setPost({...post, level: e.target.value as EducationLevel, grade: ''})} className="w-full p-3 rounded-xl border border-slate-200 text-sm">
+                        {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Série</label>
+                      <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 text-sm" required>
+                        <option value="">Selecione...</option>
+                        {post.level && (GRADES_BY_LEVEL[post.level as EducationLevel] || []).map(g => <option key={g} value={g}>{g}</option>)}
+                      </select>
                     </div>
                   </div>
-                )}
 
-                <input type="text" placeholder="Título" className="w-full p-3 rounded-xl border border-slate-200 font-bold" value={post.title} onChange={e => setPost({...post, title: e.target.value})} required />
-                <textarea rows={4} placeholder="Conteúdo Pedagógico / Descrição" className="w-full p-3 rounded-xl border border-slate-200" value={post.content} onChange={e => setPost({...post, content: e.target.value})} required />
-                
-                <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl text-center">
-                  <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} id="file-mat" className="hidden" />
-                  <label htmlFor="file-mat" className="cursor-pointer text-sm font-bold text-slate-500 block p-2">
-                    {selectedFile ? `Arquivo selecionado: ${selectedFile.name}` : 'Selecionar PDF/Arquivo Anexo'}
-                  </label>
-                </div>
-                
-                <button type="submit" disabled={status === 'saving'} className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold shadow-lg uppercase tracking-widest transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50">
-                  {status === 'saving' ? (
-                    <span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={20}/> Publicando...</span>
-                  ) : 'Publicar Material'}
-                </button>
-             </form>
+                  {post.resource === 'Vídeo' && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Link do Vídeo</label>
+                      <div className="flex gap-2">
+                        <input type="url" placeholder="YouTube/Vimeo" className="flex-1 p-3 rounded-xl border border-slate-200" value={post.video_url} onChange={e => setPost({...post, video_url: e.target.value})} />
+                        <button type="button" onClick={fetchVideoMetadata} className="px-4 bg-purple-600 text-white rounded-xl font-bold flex items-center gap-2"><Sparkles size={16}/> IA</button>
+                      </div>
+                    </div>
+                  )}
+
+                  <input type="text" placeholder="Título" className="w-full p-3 rounded-xl border border-slate-200 font-bold" value={post.title} onChange={e => setPost({...post, title: e.target.value})} required />
+                  
+                  {/* Painel de Formatação */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-t-xl border-b-0">
+                      <button type="button" onClick={() => applyFormat('**', '**')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Negrito"><Bold size={18}/></button>
+                      <button type="button" onClick={() => applyFormat('*', '*')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Itálico"><Italic size={18}/></button>
+                      <button type="button" onClick={() => applyFormat('<u>', '</u>')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Sublinhado"><Underline size={18}/></button>
+                      <button type="button" onClick={() => applyFormat('~~', '~~')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Tachado"><Strikethrough size={18}/></button>
+                      <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                      <button type="button" onClick={() => applyFormat('# ', '')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Título 1"><Heading1 size={18}/></button>
+                      <button type="button" onClick={() => applyFormat('## ', '')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Título 2"><Heading2 size={18}/></button>
+                      <button type="button" onClick={() => applyFormat('- ', '')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Lista"><List size={18}/></button>
+                      <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                      <button type="button" onClick={() => applyFormat('[center]', '[/center]')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Centralizar"><AlignCenter size={18}/></button>
+                      <button type="button" onClick={() => applyFormat('[right]', '[/right]')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Direita"><AlignRight size={18}/></button>
+                    </div>
+                    <textarea 
+                      ref={textAreaRef}
+                      rows={8} 
+                      placeholder="Conteúdo Pedagógico..." 
+                      className="w-full p-4 rounded-b-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-adventist-blue outline-none" 
+                      value={post.content} 
+                      onChange={e => setPost({...post, content: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl text-center">
+                    {existingFileUrl && !selectedFile && (
+                      <div className="text-[10px] text-green-600 font-bold uppercase mb-2">Arquivo Atual: {existingFileUrl.split('/').pop()}</div>
+                    )}
+                    <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} id="file-mat" className="hidden" />
+                    <label htmlFor="file-mat" className="cursor-pointer text-sm font-bold text-slate-500 block p-2 hover:bg-slate-50 rounded-lg">
+                      {selectedFile ? `Selecionado: ${selectedFile.name}` : editingId ? 'Substituir arquivo (opcional)' : 'Anexar PDF/Arquivo'}
+                    </label>
+                  </div>
+                  
+                  <button type="submit" disabled={status === 'saving'} className={`w-full py-4 rounded-xl font-bold shadow-lg uppercase tracking-widest transition-all ${editingId ? 'bg-adventist-yellow text-adventist-blue' : 'bg-adventist-blue text-adventist-yellow'}`}>
+                    {status === 'saving' ? <Loader2 className="animate-spin mx-auto"/> : editingId ? 'Salvar Alterações' : 'Publicar Material'}
+                  </button>
+               </form>
+
+               {/* Materiais Recentes */}
+               <div className="pt-10 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-sm font-black text-adventist-blue uppercase tracking-wider">Posts Recentes (Edição)</h4>
+                    <button onClick={loadRecentMaterials} className="p-2 text-slate-400 hover:text-adventist-blue transition-colors"><RefreshCw size={18} className={isLoadingMaterials ? 'animate-spin' : ''}/></button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {recentMaterials.map((mat) => (
+                      <div key={mat.id} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl transition-all group">
+                         <div className="overflow-hidden">
+                           <p className="text-xs font-bold text-slate-800 truncate">{mat.titulo}</p>
+                           <p className="text-[8px] text-slate-400 uppercase font-bold">{mat.nivel} • {mat.serie}</p>
+                         </div>
+                         <button onClick={() => startEditing(mat)} className="p-2 bg-white text-adventist-blue rounded-xl shadow-sm border border-slate-200 hover:bg-adventist-blue hover:text-white transition-all">
+                           <Edit2 size={14}/>
+                         </button>
+                      </div>
+                    ))}
+                  </div>
+               </div>
+             </div>
           )}
 
           {activeTab === 'mural' && (
             <form onSubmit={handleSaveMural} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <input type="text" placeholder="Nome do Professor" className="p-3 rounded-xl border border-slate-200" value={muralData.professor_nome} onChange={e => setMuralData({...muralData, professor_nome: e.target.value})} required />
-                <input type="text" placeholder="Escola" className="p-3 rounded-xl border border-slate-200" value={muralData.escola_nome} onChange={e => setMuralData({...muralData, escola_nome: e.target.value})} required />
-              </div>
-              <input type="text" placeholder="Título do Trabalho" className="w-full p-3 rounded-xl border border-slate-200 font-bold" value={muralData.titulo_trabalho} onChange={e => setMuralData({...muralData, titulo_trabalho: e.target.value})} required />
-              <textarea rows={4} placeholder="Explicação..." className="w-full p-3 rounded-xl border border-slate-200" value={muralData.descricao} onChange={e => setMuralData({...muralData, descricao: e.target.value})} required />
+              <input type="text" placeholder="Trabalho" className="w-full p-3 rounded-xl border border-slate-200 font-bold" value={muralData.titulo_trabalho} onChange={e => setMuralData({...muralData, titulo_trabalho: e.target.value})} required />
+              <textarea rows={4} placeholder="Descrição..." className="w-full p-3 rounded-xl border border-slate-200" value={muralData.descricao} onChange={e => setMuralData({...muralData, descricao: e.target.value})} required />
               <div className="grid grid-cols-5 gap-2">
                 {muralFiles.map((file, i) => (
-                  <div key={i} className="relative aspect-square rounded-lg bg-slate-100 overflow-hidden"><img src={URL.createObjectURL(file)} className="w-full h-full object-cover" alt="Preview" /></div>
+                  <div key={i} className="aspect-square rounded-lg bg-slate-100 overflow-hidden"><img src={URL.createObjectURL(file)} className="w-full h-full object-cover" /></div>
                 ))}
-                <label className="aspect-square rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-slate-50"><Plus size={20} /><input type="file" multiple accept="image/*" className="hidden" onChange={e => setMuralFiles([...muralFiles, ...Array.from(e.target.files || [])].slice(0, 10))} /></label>
+                <label className="aspect-square rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-slate-50"><Plus size={20} /><input type="file" multiple className="hidden" onChange={e => setMuralFiles([...muralFiles, ...Array.from(e.target.files || [])])} /></label>
               </div>
-              <button type="submit" className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold">Publicar no Mural</button>
+              <button type="submit" className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold">Publicar Mural</button>
             </form>
           )}
 
           {activeTab === 'news' && (
             <form onSubmit={handleSaveNews} className="space-y-6">
-              <div className="flex gap-2">
-                <input type="url" placeholder="URL da Notícia" className="flex-1 p-3 rounded-xl border border-slate-200" value={newsData.url} onChange={e => setNewsData({...newsData, url: e.target.value})} required />
-                <button type="button" onClick={fetchNewsMetadata} className="px-4 bg-purple-600 text-white rounded-xl font-bold flex items-center gap-2"><Sparkles size={18}/> IA</button>
-              </div>
-              <input type="text" placeholder="Título" className="w-full p-3 rounded-xl border border-slate-200 font-bold" value={newsData.titulo} onChange={e => setNewsData({...newsData, titulo: e.target.value})} required />
+              <input type="text" placeholder="Título da Notícia" className="w-full p-3 rounded-xl border border-slate-200 font-bold" value={newsData.titulo} onChange={e => setNewsData({...newsData, titulo: e.target.value})} required />
               <textarea placeholder="Resumo..." className="w-full p-3 rounded-xl border border-slate-200" value={newsData.resumo} onChange={e => setNewsData({...newsData, resumo: e.target.value})} required />
-              <input type="text" placeholder="URL da Imagem" className="w-full p-3 rounded-xl border border-slate-200" value={newsData.imagem_url} onChange={e => setNewsData({...newsData, imagem_url: e.target.value})} required />
               <button type="submit" className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold">Publicar Notícia</button>
             </form>
           )}
 
           <div className="mt-6">
-             {status === 'success' && (
-               <div className="flex items-center justify-center gap-2 text-green-600 font-bold animate-bounce bg-green-50 p-3 rounded-xl border border-green-200">
-                 <CheckCircle2 size={20}/> Postado com sucesso!
-               </div>
-             )}
-             {status === 'error' && (
-               <div className="space-y-3">
-                 <div className="flex items-start gap-2 text-red-600 font-bold bg-red-50 p-4 rounded-xl border border-red-200">
-                   <AlertCircle size={20} className="shrink-0 mt-1"/>
-                   <div className="space-y-1">
-                     <p>Falha ao salvar:</p>
-                     <p className="text-xs font-mono bg-white/50 p-2 rounded border border-red-100">{errorMessage}</p>
-                   </div>
-                 </div>
-                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-[10px] text-slate-500 space-y-2">
-                    <p className="font-bold flex items-center gap-1"><Info size={12}/> POSSÍVEIS SOLUÇÕES NO SUPABASE:</p>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li>Verifique se o bucket <strong>'materiais'</strong> foi criado no Storage e está como <strong>Public</strong>.</li>
-                      <li>Verifique se a tabela <strong>'materiais_pedagogicos'</strong> possui RLS desativado ou uma política de 'INSERT' para a função 'anon'.</li>
-                      <li>Confirme se o campo 'conteudo' é do tipo <strong>text</strong> (não varchar).</li>
-                    </ul>
-                 </div>
-               </div>
-             )}
+             {status === 'success' && <div className="text-green-600 font-bold text-center animate-bounce">✓ Processado com sucesso!</div>}
+             {status === 'error' && <div className="text-red-600 font-bold text-center text-xs">✗ {errorMessage}</div>}
           </div>
         </div>
       </div>
