@@ -108,7 +108,7 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  const toggleDarkMode = () => setIsDarkMode(prev => !prev);
+  const toggleDarkMode = () => setIsDarkMode(prev => prev === false);
 
   const handleUpdateSelection = useCallback(async (update: Partial<SelectionState>) => {
     const newState = { ...selection, ...update };
@@ -258,7 +258,7 @@ const App: React.FC = () => {
           </div>
           <div className="space-y-4">
             <p className="text-slate-400 text-sm max-w-2xl leading-relaxed flex flex-wrap items-center justify-center gap-x-1">
-              <span>© 2025 Portal de Ensino de Artes. Idealizado por</span>
+              <span>© 2026 Portal de Ensino de Artes. Idealizado por</span>
               <a href="https://marcobaptista.com.br/" target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-adventist-yellow transition-colors font-bold underline underline-offset-4 decoration-slate-600 hover:decoration-adventist-yellow">Marco Baptista</a>
               <span>, Desenvolvido por</span>
               <a href="https://www.instagram.com/denny.baptista" target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-adventist-yellow transition-colors underline underline-offset-4 decoration-slate-600 hover:decoration-adventist-yellow">Denise Baptista</a>
