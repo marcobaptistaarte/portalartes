@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, ArrowLeft, Camera, Loader2, Plus, Lock, 
   Eye, EyeOff, ShieldCheck, Edit2, X, RefreshCw, Bold, Italic, Underline, List, AlignCenter, 
-  AlignRight, AlignJustify, Strikethrough, Heading1, Heading2, ChevronDown, ChevronUp
+  AlignRight, AlignJustify, Strikethrough, Heading1, Heading2, ChevronDown, ChevronUp, Trash2, AlertTriangle
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType } from '../types';
@@ -28,6 +28,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const editorRef = useRef<HTMLDivElement>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
   const [expandedGrades, setExpandedGrades] = useState<Record<string, boolean>>({});
@@ -171,6 +172,25 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     setExistingFileUrl(null);
   };
 
+  const handleDeleteMaterial = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('materiais_pedagogicos')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      setRecentMaterials(prev => prev.filter(m => m.id !== id));
+      setDeletingId(null);
+      setStatus('success');
+      setTimeout(() => setStatus('idle'), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setStatus('error');
+    }
+  };
+
   const handleSaveContent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!post.grade) return alert("Selecione a Série.");
@@ -233,6 +253,25 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl animate-in fade-in duration-500">
+      {/* Modal de Confirmação de Exclusão */}
+      {deletingId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl border border-slate-100 dark:border-slate-700 text-center space-y-6">
+            <div className="mx-auto w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+              <AlertTriangle size={32} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Excluir Material?</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Esta ação é permanente e não poderá ser desfeita.</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setDeletingId(null)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 transition-all">Cancelar</button>
+              <button onClick={() => handleDeleteMaterial(deletingId)} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 dark:shadow-none transition-all">Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold hover:underline"><ArrowLeft size={20} /> Voltar para o Portal</button>
         <div className="flex items-center gap-4">
@@ -263,7 +302,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                )}
 
                <form onSubmit={handleSaveContent} className="space-y-6">
-                  {/* Linha 1: Nível e Série */}
                   <div className="grid grid-cols-2 gap-4">
                     <select value={post.level} onChange={e => setPost({...post, level: e.target.value as EducationLevel, grade: ''})} className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
                       {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
@@ -274,7 +312,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                     </select>
                   </div>
 
-                  {/* Linha 2: Bimestre e Tipo de Recurso */}
                   <div className="grid grid-cols-2 gap-4">
                     <select value={post.bimester} onChange={e => setPost({...post, bimester: e.target.value as Bimester})} className="w-full p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
                       {BIMESTERS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -342,7 +379,10 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                              {groupedMaterials[grade].map((mat: any) => (
                                <div key={mat.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 hover:border-adventist-blue border rounded-xl transition-all group shadow-sm">
                                  <p className="text-xs font-bold truncate pr-4">{mat.titulo}</p>
-                                 <button onClick={() => startEditing(mat)} className="p-2 bg-slate-50 dark:bg-slate-700 text-adventist-blue rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-adventist-blue hover:text-white"><Edit2 size={12}/></button>
+                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                   <button onClick={() => startEditing(mat)} className="p-2 bg-slate-50 dark:bg-slate-700 text-adventist-blue rounded-lg hover:bg-adventist-blue hover:text-white transition-colors" title="Editar"><Edit2 size={12}/></button>
+                                   <button onClick={() => setDeletingId(mat.id)} className="p-2 bg-slate-50 dark:bg-slate-700 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Excluir"><Trash2 size={12}/></button>
+                                 </div>
                                </div>
                              ))}
                            </div>
