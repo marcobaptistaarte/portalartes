@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
@@ -25,6 +24,7 @@ import {
   List,
   AlignCenter,
   AlignRight,
+  AlignJustify,
   Strikethrough,
   Heading1,
   Heading2,
@@ -71,7 +71,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     content: '',
     video_url: ''
   });
-  // Fix: Initialize with null instead of 0 to match File | null type
+  
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
 
@@ -480,6 +480,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                       <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
                       <button type="button" onClick={() => applyFormat('[center]', '[/center]')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-300" title="Centralizar"><AlignCenter size={18}/></button>
                       <button type="button" onClick={() => applyFormat('[right]', '[/right]')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-300" title="Direita"><AlignRight size={18}/></button>
+                      <button type="button" onClick={() => applyFormat('[justify]', '[/justify]')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-slate-600 dark:text-slate-300" title="Justificar"><AlignJustify size={18}/></button>
                     </div>
                     <textarea 
                       ref={textAreaRef}
