@@ -8,6 +8,74 @@ interface ContentDisplayProps {
 }
 
 const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, error }) => {
+  
+  // Processador de formatação de texto (Markdown-like + Custom Tags)
+  const renderFormattedLine = (line: string, index: number) => {
+    if (!line.trim()) return <br key={index} />;
+
+    let className = "text-slate-600 dark:text-slate-300 text-lg leading-relaxed mb-4";
+    let contentNode: React.ReactNode = line;
+
+    // 1. Detectar Alinhamento
+    if (line.includes('[center]')) {
+      className += " text-center";
+      contentNode = (contentNode as string).replace('[center]', '').replace('[/center]', '');
+    } else if (line.includes('[right]')) {
+      className += " text-right";
+      contentNode = (contentNode as string).replace('[right]', '').replace('[/right]', '');
+    }
+
+    // 2. Detectar Títulos
+    if (line.startsWith('# ')) {
+      return <h2 key={index} className="text-2xl font-black text-adventist-blue dark:text-adventist-yellow mt-8 mb-4">{line.replace('# ', '')}</h2>;
+    }
+    if (line.startsWith('## ')) {
+      return <h3 key={index} className="text-xl font-bold text-slate-800 dark:text-white mt-6 mb-3">{line.replace('## ', '')}</h3>;
+    }
+
+    // 3. Detectar Listas
+    if (line.trim().startsWith('- ')) {
+      contentNode = (contentNode as string).replace('- ', '');
+      return (
+        <li key={index} className={`${className} list-none flex gap-2 ml-4`}>
+          <span className="text-adventist-yellow">•</span>
+          <span>{parseInlineStyles(contentNode as string)}</span>
+        </li>
+      );
+    }
+
+    return <p key={index} className={className}>{parseInlineStyles(contentNode as string)}</p>;
+  };
+
+  // Função para processar estilos inline (negrito, itálico, etc)
+  const parseInlineStyles = (text: string) => {
+    // Ordem: Negrito (**), Itálico (*), Sublinhado (<u>), Tachado (~~)
+    // FIX: Replaced JSX.Element with React.ReactElement to resolve "Cannot find namespace 'JSX'" error.
+    let parts: (string | React.ReactElement)[] = [text];
+
+    // Bold
+    parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\*\*.*?\*\*)/g).map(s => 
+      s.startsWith('**') && s.endsWith('**') ? <strong key={s}>{s.slice(2, -2)}</strong> : s
+    ));
+
+    // Italic
+    parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\*.*?\*)/g).map(s => 
+      s.startsWith('*') && s.endsWith('*') ? <em key={s}>{s.slice(1, -1)}</em> : s
+    ));
+
+    // Underline
+    parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(<u>.*?<\/u>)/g).map(s => 
+      s.startsWith('<u>') && s.endsWith('</u>') ? <u key={s}>{s.slice(3, -4)}</u> : s
+    ));
+
+    // Strikethrough
+    parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(~~.*?~~)/g).map(s => 
+      s.startsWith('~~') && s.endsWith('~~') ? <del key={s}>{s.slice(2, -2)}</del> : s
+    ));
+
+    return parts;
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-adventist-blue dark:text-adventist-yellow">
@@ -69,12 +137,8 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
             </div>
           </div>
 
-          <article className="prose prose-slate dark:prose-invert max-w-none mb-12">
-            {content.content?.split('\n').map((line: string, i: number) => (
-              <p key={i} className="text-slate-600 dark:text-slate-300 text-lg leading-relaxed mb-4">
-                {line}
-              </p>
-            ))}
+          <article className="max-w-none mb-12">
+            {content.content?.split('\n').map((line: string, i: number) => renderFormattedLine(line, i))}
           </article>
 
           {content.arquivo_url && (
