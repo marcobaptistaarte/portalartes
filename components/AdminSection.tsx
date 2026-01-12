@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
@@ -70,6 +71,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     content: '',
     video_url: ''
   });
+  // Fix: Initialize with null instead of 0 to match File | null type
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
 
@@ -91,12 +93,15 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     tipo: 'external' as const
   });
 
-  // Função para aplicar formatação no textarea
+  // Função para aplicar formatação no textarea preservando o scroll
   const applyFormat = (tagStart: string, tagEnd: string = '') => {
     if (!textAreaRef.current) return;
     
-    const start = textAreaRef.current.selectionStart;
-    const end = textAreaRef.current.selectionEnd;
+    const textarea = textAreaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const scrollTop = textarea.scrollTop; // Captura a posição atual do scroll
+    
     const text = post.content || '';
     const before = text.substring(0, start);
     const selection = text.substring(start, end);
@@ -105,12 +110,13 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     const newText = before + tagStart + selection + tagEnd + after;
     setPost({ ...post, content: newText });
 
-    // Re-focus e reposicionar cursor
+    // Re-focus e reposicionar cursor sem saltar o scroll
     setTimeout(() => {
-      if (textAreaRef.current) {
-        textAreaRef.current.focus();
+      if (textarea) {
+        textarea.focus();
         const newPos = selection ? end + tagStart.length + tagEnd.length : start + tagStart.length;
-        textAreaRef.current.setSelectionRange(newPos, newPos);
+        textarea.setSelectionRange(newPos, newPos);
+        textarea.scrollTop = scrollTop; // Restaura a posição original do scroll
       }
     }, 0);
   };
@@ -241,7 +247,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     try {
       let fileUrl = existingFileUrl || '';
       
-      if (selectedFile) {
+      if (selectedFile instanceof File) {
         const sanitizedName = selectedFile.name
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
@@ -388,7 +394,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
               <h2 className="text-2xl font-black text-white uppercase tracking-wider">Acesso Restrito</h2>
               <p className="text-blue-100/70 text-sm">Digite a senha para gerenciar o portal</p>
             </div>
-            {/* Fix: use onSubmit instead of handleLogin which is not a valid prop for form */}
             <form onSubmit={handleLogin} className="w-full space-y-4">
               <div className="relative">
                 <input type={showPassword ? "text" : "password"} value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder="Senha mestra" className="w-full bg-white/10 border-2 border-white/10 rounded-2xl py-4 px-6 text-white text-center font-bold tracking-[0.3em] outline-none focus:border-adventist-yellow" autoFocus />
