@@ -18,6 +18,20 @@ export const HomeSections: React.FC<HomeSectionsProps> = ({
   onViewNews,
   onSeeMoreNews
 }) => {
+  
+  // Função para remover marcadores de formatação para exibição limpa nos snippets
+  const stripFormatting = (text: string) => {
+    if (!text) return '';
+    return text
+      .replace(/\[\/?(center|right|justify)\]/g, '') // Remove tags de alinhamento
+      .replace(/<u>|<\/u>/g, '')                   // Remove tags de sublinhado
+      .replace(/\*\*/g, '')                         // Remove negrito
+      .replace(/\*/g, '')                           // Remove itálico
+      .replace(/~~/g, '')                           // Remove tachado
+      .replace(/^#+\s+/gm, '')                      // Remove marcadores de título (# e ##)
+      .trim();
+  };
+
   return (
     <div className="container mx-auto px-4 space-y-24 py-16">
       
@@ -52,7 +66,7 @@ export const HomeSections: React.FC<HomeSectionsProps> = ({
                   {activity.title}
                 </h3>
                 <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6">
-                  {activity.content}
+                  {stripFormatting(activity.content)}
                 </p>
                 <div className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold text-xs uppercase tracking-wider">
                   Acessar Material <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
@@ -111,7 +125,7 @@ export const HomeSections: React.FC<HomeSectionsProps> = ({
                     {news.title}
                   </h3>
                   <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 mb-6 italic">
-                    {news.summary}
+                    {stripFormatting(news.summary)}
                   </p>
                   <div className="mt-auto">
                     <button 
