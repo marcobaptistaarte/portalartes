@@ -18,7 +18,8 @@ export const BIMESTERS: Bimester[] = [
   '1º bimestre',
   '2º bimestre',
   '3º bimestre',
-  '4º bimestre'
+  '4º bimestre',
+  'Anual'
 ];
 
 export const RESOURCE_TYPES: { type: ResourceType; icon: string }[] = [
