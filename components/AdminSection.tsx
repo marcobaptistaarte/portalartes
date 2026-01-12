@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   FileText, 
@@ -136,16 +135,38 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
   const handleSaveContent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!post.grade) {
+      alert("Por favor, selecione a Série antes de salvar.");
+      return;
+    }
+
     setStatus('saving');
     try {
       let fileUrl = '';
       if (selectedFile) {
-        const fileName = `${Date.now()}-${selectedFile.name}`;
-        await supabase.storage.from('materiais').upload(`uploads/${fileName}`, selectedFile);
+        // Sanitizar nome do arquivo: remover acentos e espaços
+        const sanitizedName = selectedFile.name
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, '_')
+          .replace(/[^a-zA-Z0-9._-]/g, '');
+
+        const fileName = `${Date.now()}-${sanitizedName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('materiais')
+          .upload(`uploads/${fileName}`, selectedFile);
+
+        if (uploadError) {
+          console.error("Erro no Upload Storage:", uploadError);
+          throw new Error("Erro ao enviar arquivo para o Storage.");
+        }
+
         const { data: { publicUrl } } = supabase.storage.from('materiais').getPublicUrl(`uploads/${fileName}`);
         fileUrl = publicUrl;
       }
-      const { error } = await supabase.from('materiais_pedagogicos').insert([{
+
+      const { error: dbError } = await supabase.from('materiais_pedagogicos').insert([{
         titulo: post.title,
         nivel: post.level,
         serie: post.grade,
@@ -155,12 +176,20 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         arquivo_url: fileUrl,
         video_url: post.video_url
       }]);
-      if (error) throw error;
+
+      if (dbError) {
+        console.error("Erro no Banco de Dados:", dbError);
+        throw dbError;
+      }
+
       setStatus('success');
       setPost({ level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Conteúdo', title: '', content: '', video_url: '' });
       setSelectedFile(null);
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err) { setStatus('error'); }
+    } catch (err) { 
+      console.error("Erro geral no salvamento:", err);
+      setStatus('error'); 
+    }
   };
 
   const handleSaveMural = async (e: React.FormEvent) => {
@@ -169,12 +198,17 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     try {
       const photoUrls: string[] = [];
       for (const file of muralFiles) {
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
-        await supabase.storage.from('mural').upload(`fotos/${fileName}`, file);
+        const sanitizedName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${sanitizedName}`;
+        
+        const { error: uploadError } = await supabase.storage.from('mural').upload(`fotos/${fileName}`, file);
+        if (uploadError) throw uploadError;
+
         const { data: { publicUrl } } = supabase.storage.from('mural').getPublicUrl(`fotos/${fileName}`);
         photoUrls.push(publicUrl);
       }
-      await supabase.from('mural_posts').insert([{
+
+      const { error: dbError } = await supabase.from('mural_posts').insert([{
         professor_nome: muralData.professor_nome,
         escola_nome: muralData.escola_nome,
         nivel: muralData.nivel,
@@ -183,18 +217,24 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         descricao: muralData.descricao,
         fotos: photoUrls
       }]);
+
+      if (dbError) throw dbError;
+
       setStatus('success');
       setMuralFiles([]);
       setMuralData({ professor_nome: '', escola_nome: '', nivel: 'Ensino Fundamental I', serie: '', titulo_trabalho: '', descricao: '' });
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err) { setStatus('error'); }
+    } catch (err) { 
+      console.error(err);
+      setStatus('error'); 
+    }
   };
 
   const handleSaveNews = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('saving');
     try {
-      await supabase.from('curated_news').insert([{
+      const { error: dbError } = await supabase.from('curated_news').insert([{
         titulo: newsData.titulo,
         resumo: newsData.resumo,
         imagem_url: newsData.imagem_url,
@@ -202,10 +242,16 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         tipo: newsData.tipo,
         data_postagem: new Date().toLocaleDateString('pt-BR')
       }]);
+
+      if (dbError) throw dbError;
+
       setStatus('success');
       setNewsData({ url: '', titulo: '', resumo: '', imagem_url: '', tipo: 'external' });
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err) { setStatus('error'); }
+    } catch (err) { 
+      console.error(err);
+      setStatus('error'); 
+    }
   };
 
   if (!isAuthenticated) {
@@ -258,9 +304,9 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Série</label>
-                    <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 text-sm">
+                    <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} className="w-full p-3 rounded-xl border border-slate-200 text-sm" required>
                       <option value="">Selecione...</option>
-                      {post.level && GRADES_BY_LEVEL[post.level as EducationLevel].map(g => <option key={g} value={g}>{g}</option>)}
+                      {post.level && (GRADES_BY_LEVEL[post.level as EducationLevel] || []).map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -294,11 +340,15 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                 
                 <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl text-center">
                   <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} id="file-mat" className="hidden" />
-                  <label htmlFor="file-mat" className="cursor-pointer text-sm font-bold text-slate-500">{selectedFile ? selectedFile.name : 'Selecionar PDF/Arquivo Anexo'}</label>
+                  <label htmlFor="file-mat" className="cursor-pointer text-sm font-bold text-slate-500 block p-2">
+                    {selectedFile ? `Arquivo selecionado: ${selectedFile.name}` : 'Selecionar PDF/Arquivo Anexo'}
+                  </label>
                 </div>
                 
-                <button type="submit" disabled={status === 'saving'} className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold shadow-lg uppercase tracking-widest">
-                  {status === 'saving' ? 'Salvando...' : 'Publicar Material'}
+                <button type="submit" disabled={status === 'saving'} className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold shadow-lg uppercase tracking-widest transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50">
+                  {status === 'saving' ? (
+                    <span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={20}/> Publicando...</span>
+                  ) : 'Publicar Material'}
                 </button>
              </form>
           )}
@@ -336,7 +386,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
           <div className="mt-6 flex justify-center">
              {status === 'success' && <span className="text-green-600 font-bold animate-bounce flex items-center gap-2"><CheckCircle2/> Postado com sucesso!</span>}
-             {status === 'error' && <span className="text-red-600 font-bold flex items-center gap-2"><AlertCircle/> Erro ao salvar.</span>}
+             {status === 'error' && <span className="text-red-600 font-bold flex items-center gap-2"><AlertCircle/> Erro ao salvar. Verifique o console do navegador.</span>}
           </div>
         </div>
       </div>
@@ -344,5 +394,4 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   );
 };
 
-// Fix: Adding default export
 export default AdminSection;
