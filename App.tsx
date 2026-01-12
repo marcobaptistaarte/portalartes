@@ -253,8 +253,6 @@ const App: React.FC = () => {
         <div className="container mx-auto flex flex-col items-center text-center gap-8">
           <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-adventist-yellow">
             <button onClick={() => navigateTo('home')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'home' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Início</button>
-            <button onClick={() => navigateTo('mural')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'mural' || currentView === 'mural-detail' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Mural</button>
-            <button onClick={() => navigateTo('noticias')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'noticias' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Notícias</button>
             <button onClick={() => navigateTo('about')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'about' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Sobre o portal</button>
             <button onClick={() => navigateTo('contact')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'contact' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Contato</button>
           </div>
