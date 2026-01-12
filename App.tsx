@@ -47,6 +47,27 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Sistema de Roteamento Simples por Hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#/', '').replace('#', '') || 'home';
+      // Mapeamento simples de rotas
+      const validViews: View[] = ['home', 'about', 'privacy', 'contact', 'admin', 'mural', 'mural-detail', 'noticias', 'news-detail', 'app-install'];
+      if (validViews.includes(hash as View)) {
+        setCurrentView(hash as View);
+      } else {
+        setCurrentView('home');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    // Executa no load inicial
+    handleHashChange();
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -108,7 +129,7 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  const toggleDarkMode = () => setIsDarkMode(prev => prev === false);
+  const toggleDarkMode = () => setIsDarkMode(prev => !prev);
 
   const handleUpdateSelection = useCallback(async (update: Partial<SelectionState>) => {
     const newState = { ...selection, ...update };
@@ -157,8 +178,9 @@ const App: React.FC = () => {
   const navigateTo = (view: View, data: any = null) => {
     if (view === 'mural-detail') setSelectedMuralPost(data);
     if (view === 'news-detail') setSelectedNewsItem(data);
-    setCurrentView(view);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Atualiza o hash, o useEffect cuidará do estado
+    window.location.hash = `#/${view}`;
   };
 
   const handleViewNews = (item: NewsItem) => {
@@ -182,7 +204,7 @@ const App: React.FC = () => {
       tags: ['Material Oficial', activity.nivel, activity.tipo_recurso],
       arquivo_url: activity.arquivo_url
     });
-    setCurrentView('home');
+    navigateTo('home');
     setTimeout(() => {
       document.getElementById('content-area')?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
@@ -255,6 +277,7 @@ const App: React.FC = () => {
             <button onClick={() => navigateTo('home')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'home' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Início</button>
             <button onClick={() => navigateTo('about')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'about' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Sobre o portal</button>
             <button onClick={() => navigateTo('contact')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'contact' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Contato</button>
+            <button onClick={() => navigateTo('privacy')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'privacy' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Privacidade</button>
           </div>
           <div className="space-y-4">
             <p className="text-slate-400 text-sm max-w-2xl leading-relaxed flex flex-wrap items-center justify-center gap-x-1">
