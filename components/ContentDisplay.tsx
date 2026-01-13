@@ -14,66 +14,65 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
     if (!line.trim()) return <br key={index} />;
 
     let className = "text-slate-600 dark:text-slate-300 text-lg leading-relaxed mb-4";
-    let contentNode: React.ReactNode = line;
+    let contentNode: string = line;
 
-    // 1. Detectar Alinhamento
-    if (line.includes('[center]')) {
+    // 1. Detectar Alinhamento (usando regex global para garantir remoção de todas as tags)
+    if (contentNode.includes('[center]')) {
       className += " text-center";
-      contentNode = (contentNode as string).replace('[center]', '').replace('[/center]', '');
-    } else if (line.includes('[right]')) {
+      contentNode = contentNode.replace(/\[center\]/g, '').replace(/\[\/center\]/g, '');
+    } else if (contentNode.includes('[right]')) {
       className += " text-right";
-      contentNode = (contentNode as string).replace('[right]', '').replace('[/right]', '');
-    } else if (line.includes('[justify]')) {
+      contentNode = contentNode.replace(/\[right\]/g, '').replace(/\[\/right\]/g, '');
+    } else if (contentNode.includes('[justify]')) {
       className += " text-justify";
-      contentNode = (contentNode as string).replace('[justify]', '').replace('[/justify]', '');
+      contentNode = contentNode.replace(/\[justify\]/g, '').replace(/\[\/justify\]/g, '');
     }
 
-    // 2. Detectar Títulos
-    if (line.startsWith('# ')) {
-      return <h2 key={index} className="text-2xl font-black text-adventist-blue dark:text-adventist-yellow mt-8 mb-4">{line.replace('# ', '')}</h2>;
+    // 2. Detectar Títulos (ORDEM IMPORTANTE: ## antes de #)
+    if (contentNode.startsWith('## ')) {
+      return <h3 key={index} className="text-xl font-bold text-slate-800 dark:text-white mt-6 mb-3">{parseInlineStyles(contentNode.replace('## ', ''))}</h3>;
     }
-    if (line.startsWith('## ')) {
-      return <h3 key={index} className="text-xl font-bold text-slate-800 dark:text-white mt-6 mb-3">{line.replace('## ', '')}</h3>;
+    if (contentNode.startsWith('# ')) {
+      return <h2 key={index} className="text-2xl font-black text-adventist-blue dark:text-adventist-yellow mt-8 mb-4">{parseInlineStyles(contentNode.replace('# ', ''))}</h2>;
     }
 
     // 3. Detectar Listas
-    if (line.trim().startsWith('- ')) {
-      contentNode = (contentNode as string).replace('- ', '');
+    if (contentNode.trim().startsWith('- ')) {
+      const textOnly = contentNode.trim().replace('- ', '');
       return (
         <li key={index} className={`${className} list-none flex gap-2 ml-4`}>
           <span className="text-adventist-yellow">•</span>
-          <span>{parseInlineStyles(contentNode as string)}</span>
+          <span>{parseInlineStyles(textOnly)}</span>
         </li>
       );
     }
 
-    return <p key={index} className={className}>{parseInlineStyles(contentNode as string)}</p>;
+    return <p key={index} className={className}>{parseInlineStyles(contentNode)}</p>;
   };
 
   // Função para processar estilos inline (negrito, itálico, etc)
   const parseInlineStyles = (text: string) => {
     // Ordem: Negrito (**), Itálico (*), Sublinhado (<u>), Tachado (~~)
-    // FIX: Replaced JSX.Element with React.ReactElement to resolve "Cannot find namespace 'JSX'" error.
     let parts: (string | React.ReactElement)[] = [text];
 
     // Bold
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\*\*.*?\*\*)/g).map(s => 
-      s.startsWith('**') && s.endsWith('**') ? <strong key={s}>{s.slice(2, -2)}</strong> : s
+      s.startsWith('**') && s.endsWith('**') ? <strong key={Math.random()}>{s.slice(2, -2)}</strong> : s
     ));
 
     // Italic
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\*.*?\*)/g).map(s => 
-      s.startsWith('*') && s.endsWith('*') ? <em key={s}>{s.slice(1, -1)}</em> : s
+      s.startsWith('*') && s.endsWith('*') ? <em key={Math.random()}>{s.slice(1, -1)}</em> : s
     ));
 
     // Underline
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(<u>.*?<\/u>)/g).map(s => 
-      s.startsWith('<u>') && s.endsWith('</u>') ? <u key={s}>{s.slice(3, -4)}</u> : s
+      s.startsWith('<u>') && s.endsWith('</u>') ? <u key={Math.random()}>{s.slice(3, -4)}</u> : s
     ));
 
     // Strikethrough
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(~~.*?~~)/g).map(s => 
-      s.startsWith('~~') && s.endsWith('~~') ? <del key={s}>{s.slice(2, -2)}</del> : s
+      s.startsWith('~~') && s.endsWith('~~') ? <del key={Math.random()}>{s.slice(2, -2)}</del> : s
     ));
 
     return parts;
