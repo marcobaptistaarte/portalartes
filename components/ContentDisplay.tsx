@@ -16,7 +16,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
     let className = "text-slate-600 dark:text-slate-300 text-lg leading-relaxed mb-4";
     let contentNode: string = line;
 
-    // 1. Detectar Alinhamento (usando regex global para garantir remoção de todas as tags)
+    // 1. Detectar Alinhamento
     if (contentNode.includes('[center]')) {
       className += " text-center";
       contentNode = contentNode.replace(/\[center\]/g, '').replace(/\[\/center\]/g, '');
@@ -28,7 +28,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
       contentNode = contentNode.replace(/\[justify\]/g, '').replace(/\[\/justify\]/g, '');
     }
 
-    // 2. Detectar Títulos (ORDEM IMPORTANTE: ## antes de #)
+    // 2. Detectar Títulos
     if (contentNode.startsWith('## ')) {
       return <h3 key={index} className="text-xl font-bold text-slate-800 dark:text-white mt-6 mb-3">{parseInlineStyles(contentNode.replace('## ', ''))}</h3>;
     }
@@ -41,7 +41,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
       const textOnly = contentNode.trim().replace('- ', '');
       return (
         <li key={index} className={`${className} list-none flex gap-2 ml-4`}>
-          <span className="text-adventist-yellow">•</span>
+          <span className="text-adventist-yellow shrink-0">•</span>
           <span>{parseInlineStyles(textOnly)}</span>
         </li>
       );
@@ -50,27 +50,35 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
     return <p key={index} className={className}>{parseInlineStyles(contentNode)}</p>;
   };
 
-  // Função para processar estilos inline (negrito, itálico, etc)
+  // Função para processar estilos inline (negrito, itálico, links, etc)
   const parseInlineStyles = (text: string) => {
-    // Ordem: Negrito (**), Itálico (*), Sublinhado (<u>), Tachado (~~)
     let parts: (string | React.ReactElement)[] = [text];
 
-    // Bold
+    // Links: [text](url)
+    parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\[.*?\]\(.*?\))/g).map(s => {
+      const match = s.match(/\[(.*?)\]\((.*?)\)/);
+      if (match) {
+        return <a key={Math.random()} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-adventist-blue dark:text-adventist-yellow underline hover:opacity-80 transition-opacity font-bold">{match[1]}</a>;
+      }
+      return s;
+    }));
+
+    // Negrito: **text**
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\*\*.*?\*\*)/g).map(s => 
       s.startsWith('**') && s.endsWith('**') ? <strong key={Math.random()}>{s.slice(2, -2)}</strong> : s
     ));
 
-    // Italic
+    // Itálico: *text*
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\*.*?\*)/g).map(s => 
       s.startsWith('*') && s.endsWith('*') ? <em key={Math.random()}>{s.slice(1, -1)}</em> : s
     ));
 
-    // Underline
+    // Sublinhado: <u>text</u>
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(<u>.*?<\/u>)/g).map(s => 
       s.startsWith('<u>') && s.endsWith('</u>') ? <u key={Math.random()}>{s.slice(3, -4)}</u> : s
     ));
 
-    // Strikethrough
+    // Tachado: ~~text~~
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(~~.*?~~)/g).map(s => 
       s.startsWith('~~') && s.endsWith('~~') ? <del key={Math.random()}>{s.slice(2, -2)}</del> : s
     ));
@@ -82,7 +90,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
     return (
       <div className="flex flex-col items-center justify-center py-24 text-adventist-blue dark:text-adventist-yellow">
         <Loader2 className="animate-spin mb-4" size={48} />
-        <p className="text-lg font-medium animate-pulse">Consultando base de dados Supabase...</p>
+        <p className="text-lg font-medium animate-pulse">Carregando material pedagógico...</p>
       </div>
     );
   }
