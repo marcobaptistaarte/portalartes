@@ -75,7 +75,7 @@ const App: React.FC = () => {
     }
   };
 
-  // Sistema de Roteamento Simples por Hash
+  // Sistema de Roteamento por Hash - Garante endereços próprios
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#/', '').replace('#', '') || 'home';
@@ -92,7 +92,7 @@ const App: React.FC = () => {
           setCurrentView('home');
         }
 
-        // Se voltar para home, limpar conteúdo atual
+        // Se a rota for home, reseta estados de filtro e conteúdo para permitir nova navegação
         if (hash === 'home' || hash === '') {
           setContent(null);
           setSelection({ level: null, grade: null, bimester: null, resource: null });
@@ -191,7 +191,7 @@ const App: React.FC = () => {
         if (dbError) throw dbError;
 
         if (data) {
-          // Muda a URL para o endereço próprio do material
+          // Muda a URL para o endereço próprio do material, gerando entrada no histórico
           window.location.hash = `#/material/${data.id}`;
         } else {
           setContent({
@@ -296,7 +296,7 @@ const App: React.FC = () => {
       <footer className="bg-slate-900 text-white py-12 px-4 border-t border-slate-800">
         <div className="container mx-auto flex flex-col items-center text-center gap-8">
           <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-adventist-yellow">
-            <button onClick={() => navigateTo('home')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'home' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Início</button>
+            <button onClick={() => navigateTo('home')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'home' || currentView === 'material' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Início</button>
             <button onClick={() => navigateTo('about')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'about' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Sobre o portal</button>
             <button onClick={() => navigateTo('contact')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'contact' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Contato</button>
             <button onClick={() => navigateTo('privacy')} className={`text-sm font-semibold uppercase tracking-widest transition-colors ${currentView === 'privacy' ? 'text-adventist-yellow' : 'text-slate-400 hover:text-adventist-yellow'}`}>Privacidade</button>
