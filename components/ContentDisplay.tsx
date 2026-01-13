@@ -147,7 +147,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
             <div className="mt-12 pt-10 border-t border-slate-100 dark:border-slate-700">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                 <Download className="text-adventist-blue dark:text-adventist-yellow" />
-                Material para Download
+                Material para Download: {content.title}
               </h3>
               <div className="max-w-sm">
                 <a
@@ -160,8 +160,8 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
                     <FileText size={24} />
                   </div>
                   <div className="overflow-hidden">
-                    <p className="text-sm font-bold truncate pr-2 text-slate-800 dark:text-slate-200">Clique para baixar o anexo</p>
-                    <p className="text-[10px] text-slate-400 uppercase font-medium">Link seguro do storage</p>
+                    <p className="text-sm font-bold truncate pr-2 text-slate-800 dark:text-slate-200">{content.title}</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-medium">Clique para baixar o anexo</p>
                   </div>
                   <ExternalLink size={16} className="ml-auto text-slate-400" />
                 </a>
