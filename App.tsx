@@ -247,10 +247,6 @@ const App: React.FC = () => {
         return (
           <>
             <Hero />
-            <FilterSection selection={selection} onUpdate={handleUpdateSelection} />
-            <div id="content-area" className="pb-10">
-              <ContentDisplay content={content} isLoading={isLoading} error={error} />
-            </div>
             
             {!content && (
               <HomeSections 
@@ -274,6 +270,12 @@ const App: React.FC = () => {
                 onSeeMoreNews={() => navigateTo('noticias')}
               />
             )}
+
+            <FilterSection selection={selection} onUpdate={handleUpdateSelection} />
+            
+            <div id="content-area" className="pb-10">
+              <ContentDisplay content={content} isLoading={isLoading} error={error} />
+            </div>
           </>
         );
     }
