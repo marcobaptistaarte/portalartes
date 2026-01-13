@@ -120,9 +120,27 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     const text = e.clipboardData.getData('text/plain');
 
     if (html) {
-      // Extrai apenas o fragmento de conteúdo útil, removendo metas do Office se presentes
+      // 1. Extrai o fragmento relevante
       const fragmentMatch = html.match(/<!--StartFragment-->([\s\S]*?)<!--EndFragment-->/);
-      const cleanHtml = fragmentMatch ? fragmentMatch[1] : html;
+      let cleanHtml = fragmentMatch ? fragmentMatch[1] : html;
+      
+      // 2. Limpeza agressiva do Word/Office
+      cleanHtml = cleanHtml
+        .replace(/<o:p>[\s\S]*?<\/o:p>/g, '') // Remove tags do Office
+        .replace(/class="Mso.*?"/g, '')       // Remove classes Mso
+        .replace(/style="[\s\S]*?"/g, (match) => {
+           // Preserva apenas o text-align se existir, ignora o resto
+           return match.includes('text-align') ? match.match(/text-align:\s*(center|right|justify)/) ? `style="${match.match(/text-align:\s*(center|right|justify)/)![0]}"` : '' : '';
+        })
+        .replace(/<span[\s\S]*?>/g, '')        // Remove spans (muitas vezes inúteis vindo do Word)
+        .replace(/<\/span>/g, '')
+        .replace(/\n/g, ' ')                  // Substitui quebras de linha reais por espaços (para evitar saltos triplos)
+        .replace(/<p[\s\S]*?>/g, '<div>')     // Normaliza parágrafos para divs ou p limpos
+        .replace(/<\/p>/g, '</div>')
+        .replace(/(<div>\s*<\/div>)+/g, '<br>') // Substitui divs vazias por br
+        .replace(/\s\s+/g, ' ')               // Remove espaços duplos
+        .trim();
+
       document.execCommand('insertHTML', false, cleanHtml);
     } else {
       document.execCommand('insertText', false, text);
