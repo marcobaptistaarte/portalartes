@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, ArrowLeft, Camera, Loader2, Plus, Lock, 
   Eye, EyeOff, ShieldCheck, Edit2, X, RefreshCw, Bold, Italic, Underline, List, AlignCenter, 
-  AlignRight, AlignJustify, Strikethrough, Heading1, Heading2, ChevronDown, ChevronUp, Trash2, AlertTriangle
+  AlignRight, AlignJustify, Strikethrough, Heading1, Heading2, ChevronDown, ChevronUp, Trash2, AlertTriangle, Link as LinkIcon
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType } from '../types';
@@ -67,7 +67,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
   const portalTagsToHtml = (text: string) => {
     if (!text) return "";
-    return text
+    let html = text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/~~(.*?)~~/g, '<strike>$1</strike>')
@@ -77,8 +77,23 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       .replace(/\[center\](.*?)\[\/center\]/g, '<div style="text-align: center;">$1</div>')
       .replace(/\[right\](.*?)\[\/right\]/g, '<div style="text-align: right;">$1</div>')
       .replace(/\[justify\](.*?)\[\/justify\]/g, '<div style="text-align: justify;">$1</div>')
-      .replace(/- (.*?)\n/g, '<li>$1</li>')
-      .replace(/\n/g, '<br>');
+      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: #003366; text-decoration: underline;">$1</a>');
+
+    // Processar listas
+    const lines = html.split('\n');
+    let inList = false;
+    const processedLines = lines.map(line => {
+      if (line.trim().startsWith('- ')) {
+        const item = `<li>${line.trim().substring(2)}</li>`;
+        if (!inList) { inList = true; return `<ul>${item}`; }
+        return item;
+      } else {
+        if (inList) { inList = false; return `</ul>${line}<br>`; }
+        return `${line}<br>`;
+      }
+    });
+    if (inList) processedLines.push('</ul>');
+    return processedLines.join('');
   };
 
   const htmlToPortalTags = (html: string) => {
@@ -91,6 +106,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       const el = node as HTMLElement;
       const tag = el.tagName.toLowerCase();
       let children = Array.from(el.childNodes).map(processNode).join("");
+      
       if (tag === 'strong' || tag === 'b') return `**${children}**`;
       if (tag === 'em' || tag === 'i') return `*${children}*`;
       if (tag === 'u') return `<u>${children}</u>`;
@@ -98,11 +114,15 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       if (tag === 'h1') return `# ${children}\n`;
       if (tag === 'h2') return `## ${children}\n`;
       if (tag === 'li') return `- ${children}\n`;
+      if (tag === 'ul' || tag === 'ol') return `${children}\n`;
       if (tag === 'br') return "\n";
+      if (tag === 'a') return `[${children}](${el.getAttribute('href')})`;
+      
       const textAlign = el.style.textAlign;
       if (textAlign === 'center') return `[center]${children}[/center]`;
       if (textAlign === 'right') return `[right]${children}[/right]`;
       if (textAlign === 'justify') return `[justify]${children}[/justify]`;
+      
       if (tag === 'div' || tag === 'p') return `${children}\n`;
       return children;
     };
@@ -114,31 +134,36 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     if (editorRef.current) editorRef.current.focus();
   };
 
+  const addLink = () => {
+    const url = prompt("Digite a URL (ex: https://google.com):");
+    if (url) {
+      execCommand('createLink', url);
+    }
+  };
+
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
 
     if (html) {
-      // 1. Extrai o fragmento relevante
       const fragmentMatch = html.match(/<!--StartFragment-->([\s\S]*?)<!--EndFragment-->/);
       let cleanHtml = fragmentMatch ? fragmentMatch[1] : html;
       
-      // 2. Limpeza agressiva do Word/Office
       cleanHtml = cleanHtml
-        .replace(/<o:p>[\s\S]*?<\/o:p>/g, '') // Remove tags do Office
-        .replace(/class="Mso.*?"/g, '')       // Remove classes Mso
+        .replace(/<o:p>[\s\S]*?<\/o:p>/g, '') // Metadados Office
+        .replace(/class="Mso.*?"/g, '')       // Classes Word
         .replace(/style="[\s\S]*?"/g, (match) => {
-           // Preserva apenas o text-align se existir, ignora o resto
+           // Preserva apenas alinhamento de texto se necessário
            return match.includes('text-align') ? match.match(/text-align:\s*(center|right|justify)/) ? `style="${match.match(/text-align:\s*(center|right|justify)/)![0]}"` : '' : '';
         })
-        .replace(/<span[\s\S]*?>/g, '')        // Remove spans (muitas vezes inúteis vindo do Word)
+        .replace(/<span[\s\S]*?>/g, '')       // Remove spans poluídos
         .replace(/<\/span>/g, '')
-        .replace(/\n/g, ' ')                  // Substitui quebras de linha reais por espaços (para evitar saltos triplos)
-        .replace(/<p[\s\S]*?>/g, '<div>')     // Normaliza parágrafos para divs ou p limpos
+        .replace(/\n/g, ' ')                  // Remove quebras de linha que o Word injeta fora das tags
+        .replace(/<p[\s\S]*?>/g, '<div>')     // Converte parágrafos do Word em divisores limpos
         .replace(/<\/p>/g, '</div>')
-        .replace(/(<div>\s*<\/div>)+/g, '<br>') // Substitui divs vazias por br
-        .replace(/\s\s+/g, ' ')               // Remove espaços duplos
+        .replace(/(<div>\s*<\/div>)+/g, '<br>') // Remove blocos vazios gerados por espaços no Word
+        .replace(/\s\s+/g, ' ')               // Normaliza espaços múltiplos
         .trim();
 
       document.execCommand('insertHTML', false, cleanHtml);
@@ -360,6 +385,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                       <button type="button" onClick={() => execCommand('formatBlock', 'h1')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Título 1"><Heading1 size={18}/></button>
                       <button type="button" onClick={() => execCommand('formatBlock', 'h2')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Título 2"><Heading2 size={18}/></button>
                       <button type="button" onClick={() => execCommand('insertUnorderedList')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Lista"><List size={18}/></button>
+                      <button type="button" onClick={addLink} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Adicionar Link"><LinkIcon size={18}/></button>
                       <div className="w-px h-6 bg-slate-200 mx-1"></div>
                       <button type="button" onClick={() => execCommand('justifyCenter')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Centralizar"><AlignCenter size={18}/></button>
                       <button type="button" onClick={() => execCommand('justifyRight')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Direita"><AlignRight size={18}/></button>
