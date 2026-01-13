@@ -17,7 +17,7 @@ import { HomeSections } from './components/HomeSections';
 import { SelectionState, MuralPost, NewsItem } from './types';
 import { supabase } from './supabaseClient';
 
-type View = 'home' | 'about' | 'privacy' | 'contact' | 'admin' | 'mural' | 'mural-detail' | 'noticias' | 'news-detail' | 'app-install';
+type View = 'home' | 'about' | 'privacy' | 'contact' | 'admin' | 'mural' | 'mural-detail' | 'noticias' | 'news-detail' | 'app-install' | 'material';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
@@ -47,22 +47,61 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchMaterialById = async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { data, error: dbError } = await supabase
+        .from('materiais_pedagogicos')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (dbError) throw dbError;
+      if (data) {
+        setContent({
+          title: data.titulo,
+          content: data.conteudo,
+          tags: ['Material Oficial', data.nivel, data.tipo_recurso],
+          arquivo_url: data.arquivo_url
+        });
+      } else {
+        setError("Material não encontrado.");
+      }
+    } catch (err) {
+      setError("Erro ao carregar o material.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Sistema de Roteamento Simples por Hash
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#/', '').replace('#', '') || 'home';
-      // Mapeamento simples de rotas
-      const validViews: View[] = ['home', 'about', 'privacy', 'contact', 'admin', 'mural', 'mural-detail', 'noticias', 'news-detail', 'app-install'];
-      if (validViews.includes(hash as View)) {
-        setCurrentView(hash as View);
+      
+      if (hash.startsWith('material/')) {
+        const id = hash.split('/')[1];
+        setCurrentView('material');
+        fetchMaterialById(id);
       } else {
-        setCurrentView('home');
+        const validViews: View[] = ['home', 'about', 'privacy', 'contact', 'admin', 'mural', 'mural-detail', 'noticias', 'news-detail', 'app-install'];
+        if (validViews.includes(hash as View)) {
+          setCurrentView(hash as View);
+        } else {
+          setCurrentView('home');
+        }
+
+        // Se voltar para home, limpar conteúdo atual
+        if (hash === 'home' || hash === '') {
+          setContent(null);
+          setSelection({ level: null, grade: null, bimester: null, resource: null });
+        }
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    // Executa no load inicial
     handleHashChange();
 
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -142,7 +181,7 @@ const App: React.FC = () => {
       try {
         const { data, error: dbError } = await supabase
           .from('materiais_pedagogicos')
-          .select('*')
+          .select('id')
           .eq('nivel', newState.level)
           .eq('serie', newState.grade)
           .eq('bimestre', newState.bimester)
@@ -152,12 +191,8 @@ const App: React.FC = () => {
         if (dbError) throw dbError;
 
         if (data) {
-          setContent({
-            title: data.titulo,
-            content: data.conteudo,
-            tags: ['Material Oficial', data.nivel, data.tipo_recurso],
-            arquivo_url: data.arquivo_url
-          });
+          // Muda a URL para o endereço próprio do material
+          window.location.hash = `#/material/${data.id}`;
         } else {
           setContent({
             title: "Conteúdo em Preparação",
@@ -170,8 +205,6 @@ const App: React.FC = () => {
       } finally {
         setIsLoading(false);
       }
-    } else {
-      setContent(null);
     }
   }, [selection]);
 
@@ -179,8 +212,11 @@ const App: React.FC = () => {
     if (view === 'mural-detail') setSelectedMuralPost(data);
     if (view === 'news-detail') setSelectedNewsItem(data);
     
-    // Atualiza o hash, o useEffect cuidará do estado
-    window.location.hash = `#/${view}`;
+    if (view === 'material' && data) {
+      window.location.hash = `#/material/${data.id || data}`;
+    } else {
+      window.location.hash = `#/${view}`;
+    }
   };
 
   const handleViewNews = (item: NewsItem) => {
@@ -192,22 +228,7 @@ const App: React.FC = () => {
   };
 
   const handleViewActivity = (activity: any) => {
-    setSelection({
-      level: activity.nivel,
-      grade: activity.serie,
-      bimester: activity.bimestre,
-      resource: activity.tipo_recurso
-    });
-    setContent({
-      title: activity.titulo,
-      content: activity.conteudo,
-      tags: ['Material Oficial', activity.nivel, activity.tipo_recurso],
-      arquivo_url: activity.arquivo_url
-    });
-    navigateTo('home');
-    setTimeout(() => {
-      document.getElementById('content-area')?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    navigateTo('material', activity.id);
   };
 
   const renderContent = () => {
@@ -221,6 +242,7 @@ const App: React.FC = () => {
       case 'noticias': return <NewsPage onViewNews={handleViewNews} />;
       case 'news-detail': return selectedNewsItem ? <NewsDetail news={selectedNewsItem} onBack={() => navigateTo('noticias')} /> : null;
       case 'admin': return <AdminSection onBack={() => navigateTo('home')} />;
+      case 'material': return <ContentDisplay content={content} isLoading={isLoading} error={error} />;
       default:
         return (
           <>
