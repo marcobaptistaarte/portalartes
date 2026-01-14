@@ -3,17 +3,37 @@ import { SelectionState, GeneratedContent } from "./types";
 
 /**
  * Auxiliar para limpar e analisar o JSON da resposta do Gemini.
- * Remove blocos de código markdown se presentes e limpa espaços extras.
+ * Remove blocos de código markdown, citações de busca [1] e limpa espaços extras.
  */
 const parseGeminiJson = (text: string) => {
   try {
-    // Remove possíveis blocos de código markdown que a IA possa incluir por engano
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    // 1. Remove citações de busca (ex: [1], [2]) que o Gemini insere ao usar ferramentas de busca
+    // e que invalidam o JSON.
+    let cleanText = text.replace(/\[\d+\]/g, '');
+    
+    // 2. Remove blocos de código markdown se presentes
+    cleanText = cleanText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    // 3. Tenta encontrar o objeto JSON se houver texto adicional ao redor
+    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanText = jsonMatch[0];
+    }
+
     return JSON.parse(cleanText);
   } catch (e) {
     console.error("Erro ao analisar JSON do Gemini:", text, e);
-    throw new Error("Não foi possível processar a resposta da IA. Verifique se o link está correto e tente novamente.");
+    throw new Error("Não foi possível processar a resposta da IA. O formato retornado não é um JSON válido.");
   }
+};
+
+/**
+ * Extrai o ID do vídeo do YouTube de uma URL de forma robusta via Regex.
+ */
+const extractYoutubeId = (url: string): string | null => {
+  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[7].length === 11) ? match[7] : null;
 };
 
 /**
@@ -59,42 +79,43 @@ export const generateEducationalContent = async (selection: SelectionState): Pro
 };
 
 /**
- * Extrai metadados de um vídeo do YouTube de forma robusta.
+ * Extrai metadados de um vídeo do YouTube de forma robusta usando Google Search.
  */
 export const getVideoMetadata = async (url: string) => {
+  // Extração imediata do ID via JS para evitar alucinações da IA
+  const videoId = extractYoutubeId(url);
+  if (!videoId) throw new Error("URL do YouTube inválida ou não reconhecida.");
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Usando gemini-3-pro-preview para tarefas complexas de extração de metadados com busca
-  const prompt = `Analise detalhadamente o vídeo do YouTube no link: ${url}. 
-  Utilize a ferramenta de busca do Google para obter o título oficial e o resumo do vídeo.
-  Extraia e retorne EXCLUSIVAMENTE um objeto JSON com as propriedades:
-  - title: O título completo do vídeo.
-  - summary: Um resumo de 2 parágrafos sobre o tema do vídeo.
-  - snippet: Uma lista de 3 destaques ou pontos principais.
-  - videoId: O ID alfanumérico de 11 caracteres do vídeo extraído da URL.
-  
-  IMPORTANTE: Sua resposta deve conter apenas o JSON puro, sem citações [1] ou explicações adicionais que invalidem o formato.`;
+  // Usamos gemini-pro para tarefas de busca.
+  // IMPORTANTE: Não usamos responseMimeType: "application/json" aqui porque as anotações 
+  // de busca [1] do Grounding costumam quebrar o parsing estrito. Tratamos o texto manualmente.
+  const prompt = `Analise o vídeo do YouTube: ${url}. 
+  Obtenha o título oficial e crie um resumo pedagógico rico.
+  Retorne EXCLUSIVAMENTE um bloco de código JSON (sem usar citações como [1]) com as seguintes chaves:
+  - "title": O título oficial do vídeo.
+  - "summary": Um resumo de 2 parágrafos sobre o tema.
+  - "snippet": Uma lista curta com os 3 pontos principais.`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            snippet: { type: Type.STRING },
-            videoId: { type: Type.STRING }
-          },
-          required: ["title", "summary", "snippet", "videoId"]
-        }
+        tools: [{ googleSearch: {} }]
       }
     });
-    return parseGeminiJson(response.text);
+    
+    // Processamento manual para extrair e limpar o JSON do texto da resposta
+    const data = parseGeminiJson(response.text);
+    
+    return {
+      title: data.title || "Vídeo do YouTube",
+      summary: data.summary || "Sem resumo disponível.",
+      snippet: Array.isArray(data.snippet) ? data.snippet.join(". ") : (data.snippet || ""),
+      videoId: videoId
+    };
   } catch (error) { 
     console.error("Erro no getVideoMetadata:", error);
     throw error; 
@@ -102,41 +123,35 @@ export const getVideoMetadata = async (url: string) => {
 };
 
 /**
- * Extrai metadados de uma notícia ou artigo a partir de um link.
+ * Extrai metadados de uma notícia ou artigo a partir de um link usando Google Search.
  */
 export const getNewsMetadata = async (url: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `Analise detalhadamente o conteúdo deste artigo ou notícia: ${url}. 
-  Utilize a busca do Google para garantir a precisão das informações extraídas.
-  Retorne EXCLUSIVAMENTE um objeto JSON com:
-  - title: Título original da matéria.
-  - summary: Resumo estruturado em 3 parágrafos.
-  - snippet: Lista de destaques ou tópicos principais.
-  - category: Classifique estritamente como 'Matéria' ou 'Artigo'.
-  
-  IMPORTANTE: Retorne apenas o JSON. Não inclua citações ou textos explicativos.`;
+  Utilize a busca para garantir a precisão.
+  Retorne EXCLUSIVAMENTE um objeto JSON válido (sem citações como [1]) com:
+  - "title": Título original da matéria.
+  - "summary": Resumo estruturado em 3 parágrafos.
+  - "snippet": Lista de destaques.
+  - "category": Classifique estritamente como 'Matéria' ou 'Artigo'.`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            snippet: { type: Type.STRING },
-            category: { type: Type.STRING }
-          },
-          required: ["title", "summary", "snippet", "category"]
-        }
+        tools: [{ googleSearch: {} }]
       }
     });
-    return parseGeminiJson(response.text);
+    
+    const data = parseGeminiJson(response.text);
+    return {
+      title: data.title || "Notícia",
+      summary: data.summary || "Resumo indisponível.",
+      snippet: Array.isArray(data.snippet) ? data.snippet.join(". ") : (data.snippet || ""),
+      category: data.category || 'Matéria'
+    };
   } catch (error) { 
     console.error("Erro no getNewsMetadata:", error);
     throw error; 
