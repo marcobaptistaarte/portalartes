@@ -4,7 +4,6 @@ import { SelectionState, GeneratedContent } from "./types";
 
 /**
  * Serviço responsável por gerar conteúdos pedagógicos utilizando a API do Gemini.
- * Utiliza o modelo gemini-3-flash-preview para respostas rápidas e estruturadas.
  */
 export const generateEducationalContent = async (selection: SelectionState): Promise<GeneratedContent> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -16,7 +15,7 @@ export const generateEducationalContent = async (selection: SelectionState): Pro
     Bimestre: ${selection.bimester}
     Tipo de Recurso: ${selection.resource}
 
-    O conteúdo deve ser pedagógico, inspirador, prático e alinhado com as competências da BNCC (Base Nacional Comum Curricular). 
+    O conteúdo deve ser pedagógico, inspirador, prático e alinhado com as competências da BNCC. 
     Retorne o resultado estritamente no formato JSON especificado.
   `;
 
@@ -29,49 +28,32 @@ export const generateEducationalContent = async (selection: SelectionState): Pro
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING, description: "Título do recurso" },
-            content: { type: Type.STRING, description: "Conteúdo detalhado em Markdown" },
-            tags: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING },
-              description: "Palavras-chave relacionadas"
-            }
+            title: { type: Type.STRING },
+            content: { type: Type.STRING },
+            tags: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
           required: ["title", "content", "tags"]
         }
       }
     });
 
-    const jsonStr = response.text;
-    if (!jsonStr) throw new Error("Resposta vazia da IA");
-    
-    return JSON.parse(jsonStr.trim()) as GeneratedContent;
+    return JSON.parse(response.text.trim());
   } catch (error) {
-    console.error("Erro ao gerar conteúdo via Gemini:", error);
-    throw new Error("Não foi possível gerar o conteúdo pedagógico no momento.");
+    console.error("Erro ao gerar conteúdo:", error);
+    throw error;
   }
 };
 
 /**
- * Extrai metadados de um vídeo do YouTube usando IA e Google Search.
+ * Extrai metadados de um vídeo do YouTube.
  */
 export const getVideoMetadata = async (url: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const prompt = `
-    Analise o vídeo deste link: ${url}.
-    Extraia as seguintes informações em português:
-    1. Título exato do vídeo.
-    2. Um resumo de 2 parágrafos sobre o assunto do vídeo.
-    3. Um snippet (lista de pontos principais).
-    4. O ID do vídeo (os 11 caracteres após v= ou no final da URL).
-
-    Retorne APENAS um JSON válido.
-  `;
+  const prompt = `Analise o vídeo: ${url}. Retorne JSON com: title, summary (resumo 2 parágrafos), snippet (pontos principais), videoId (ID de 11 caracteres).`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview", // Use pro for better search results
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -88,10 +70,36 @@ export const getVideoMetadata = async (url: string) => {
         }
       }
     });
-
     return JSON.parse(response.text.trim());
-  } catch (error) {
-    console.error("Erro ao buscar metadados do vídeo:", error);
-    throw error;
-  }
+  } catch (error) { throw error; }
+};
+
+/**
+ * Extrai metadados de uma notícia ou artigo a partir de um link.
+ */
+export const getNewsMetadata = async (url: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `Analise este artigo/notícia: ${url}. Extraia: título, um resumo conciso de 3 parágrafos, um snippet (lista de destaques) e sugira se é 'Notícia' ou 'Artigo'. Retorne JSON.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            summary: { type: Type.STRING },
+            snippet: { type: Type.STRING },
+            category: { type: Type.STRING, description: "'Notícia' ou 'Artigo'" }
+          },
+          required: ["title", "summary", "snippet", "category"]
+        }
+      }
+    });
+    return JSON.parse(response.text.trim());
+  } catch (error) { throw error; }
 };
