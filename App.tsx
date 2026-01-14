@@ -30,11 +30,23 @@ const App: React.FC = () => {
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'dark' || 
-        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) return savedTheme === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
     return false;
   });
+
+  // Apply dark mode class to document
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   const [selection, setSelection] = useState<SelectionState>({
     level: null, grade: null, bimester: null, resource: null
