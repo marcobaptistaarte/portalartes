@@ -48,7 +48,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     teacherName: '', schoolName: '', level: 'Educação Infantil', grade: '', workTitle: '', description: '', photos: ['', '', '', '', '', '']
   });
   const [newsPost, setNewsPost] = useState<Partial<NewsItem>>({
-    title: '', summary: '', content: '', imageUrl: '', externalUrl: '', category: 'Notícia', type: 'external'
+    title: '', summary: '', content: '', imageUrl: '', externalUrl: '', category: 'Matéria', type: 'external'
   });
   const [vidPost, setVidPost] = useState<any>({
     titulo: '', resumo: '', snippet: '', url_video: '', video_id: '', imagem_fallback: ''
@@ -117,7 +117,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       const metadata = await getNewsMetadata(aiLink);
       setNewsPost(prev => ({ 
         ...prev, title: metadata.title, summary: metadata.summary, 
-        category: metadata.category as any, externalUrl: aiLink, type: 'external' 
+        category: (metadata.category === 'Artigo' ? 'Artigo' : 'Matéria') as any, externalUrl: aiLink, type: 'external' 
       }));
       if (newsEditorRef.current) {
         newsEditorRef.current.innerHTML = `<h1>${metadata.title}</h1><p>${metadata.summary}</p><h3>Destaques</h3><p>${metadata.snippet}</p>`;
@@ -280,6 +280,19 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
               <div className="grid grid-cols-2 gap-4">
                 <input type="text" placeholder="Nome do Professor" value={muralPost.teacherName} onChange={e => setMuralPost({...muralPost, teacherName: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
                 <input type="text" placeholder="Nome da Escola" value={muralPost.schoolName} onChange={e => setMuralPost({...muralPost, schoolName: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
+              </div>
+            )}
+
+            {activeTab === 'news' && (
+              <div className="grid grid-cols-2 gap-4">
+                <select value={newsPost.category} onChange={e => setNewsPost({...newsPost, category: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
+                  <option value="Matéria">Matéria</option>
+                  <option value="Artigo">Artigo</option>
+                </select>
+                <select value={newsPost.type} onChange={e => setNewsPost({...newsPost, type: e.target.value as 'internal' | 'external'})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
+                  <option value="external">Link Externo</option>
+                  <option value="internal">Conteúdo Interno</option>
+                </select>
               </div>
             )}
 
