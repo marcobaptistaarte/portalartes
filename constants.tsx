@@ -11,7 +11,7 @@ export const GRADES_BY_LEVEL: Record<EducationLevel, string[]> = {
   'Educação Infantil': ['3 anos', '4 anos', '5 anos'],
   'Ensino Fundamental I': ['1º ano', '2º ano', '3º ano', '4º ano', '5º ano'],
   'Ensino Fundamental II': ['6º ano', '7º ano', '8º ano', '9º ano'],
-  'Ensino Médio': ['1ª série', '2ª série', '3ª série']
+  'Ensino Médio': ['1º ano']
 };
 
 export const BIMESTERS: Bimester[] = [
