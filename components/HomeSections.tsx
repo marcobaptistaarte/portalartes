@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ArrowRight, Calendar, FileText, Newspaper, ExternalLink, PlayCircle } from 'lucide-react';
 import { ManualPost, NewsItem } from '../types';
@@ -33,7 +32,7 @@ export const HomeSections: React.FC<HomeSectionsProps> = ({
       <section className="animate-in fade-in slide-in-from-bottom-6 duration-700">
         <div className="flex items-center gap-3 mb-10">
           <div className="p-2 bg-adventist-blue text-adventist-yellow rounded-xl"><FileText size={24} /></div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-adventist-blue dark:text-adventist-yellow">Últimas Atividades Postadas</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-adventist-blue dark:text-adventist-yellow">Últimos Materiais Postados</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {latestActivities.map((activity) => (
