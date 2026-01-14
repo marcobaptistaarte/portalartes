@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Share2, Printer, Loader2, BookCheck, FileText, ExternalLink } from 'lucide-react';
+import { Download, Share2, Printer, Loader2, BookCheck, FileText, ExternalLink, ImageIcon } from 'lucide-react';
 
 interface ContentDisplayProps {
   content: any | null;
@@ -9,14 +9,48 @@ interface ContentDisplayProps {
 
 const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, error }) => {
   
-  // Processador de formatação de texto (Markdown-like + Custom Tags)
   const renderFormattedLine = (line: string, index: number) => {
     if (!line.trim()) return <br key={index} />;
 
     let className = "text-slate-600 dark:text-slate-300 text-lg leading-relaxed mb-4";
     let contentNode: string = line;
 
-    // 1. Detectar Alinhamento
+    // YouTube Embed
+    if (contentNode.includes('[youtube]')) {
+      const match = contentNode.match(/\[youtube\](.*?)\[\/youtube\]/);
+      if (match) {
+        return (
+          <div key={index} className="my-10 aspect-video rounded-3xl overflow-hidden shadow-2xl bg-slate-100 dark:bg-slate-900">
+            <iframe 
+              src={`https://www.youtube.com/embed/${match[1]}`}
+              className="w-full h-full"
+              allowFullScreen
+              title="YouTube video player"
+            ></iframe>
+          </div>
+        );
+      }
+    }
+
+    // Spotify Embed
+    if (contentNode.includes('[spotify]')) {
+      const match = contentNode.match(/\[spotify\](.*?)\[\/spotify\]/);
+      if (match) {
+        return (
+          <div key={index} className="my-8 rounded-3xl overflow-hidden shadow-lg">
+            <iframe 
+              src={`https://open.spotify.com/embed/${match[1]}`}
+              width="100%" 
+              height="352" 
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+              loading="lazy"
+              title="Spotify Player"
+            ></iframe>
+          </div>
+        );
+      }
+    }
+
     if (contentNode.includes('[center]')) {
       className += " text-center";
       contentNode = contentNode.replace(/\[center\]/g, '').replace(/\[\/center\]/g, '');
@@ -28,7 +62,6 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
       contentNode = contentNode.replace(/\[justify\]/g, '').replace(/\[\/justify\]/g, '');
     }
 
-    // 2. Detectar Títulos
     if (contentNode.startsWith('## ')) {
       return <h3 key={index} className="text-xl font-bold text-slate-800 dark:text-white mt-6 mb-3">{parseInlineStyles(contentNode.replace('## ', ''))}</h3>;
     }
@@ -36,7 +69,6 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
       return <h2 key={index} className="text-2xl font-black text-adventist-blue dark:text-adventist-yellow mt-8 mb-4">{parseInlineStyles(contentNode.replace('# ', ''))}</h2>;
     }
 
-    // 3. Detectar Listas
     if (contentNode.trim().startsWith('- ')) {
       const textOnly = contentNode.trim().replace('- ', '');
       return (
@@ -50,11 +82,9 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
     return <p key={index} className={className}>{parseInlineStyles(contentNode)}</p>;
   };
 
-  // Função para processar estilos inline (negrito, itálico, links, etc)
   const parseInlineStyles = (text: string) => {
     let parts: (string | React.ReactElement)[] = [text];
 
-    // Links: [text](url)
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\[.*?\]\(.*?\))/g).map(s => {
       const match = s.match(/\[(.*?)\]\((.*?)\)/);
       if (match) {
@@ -63,24 +93,16 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
       return s;
     }));
 
-    // Negrito: **text**
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\*\*.*?\*\*)/g).map(s => 
       s.startsWith('**') && s.endsWith('**') ? <strong key={Math.random()}>{s.slice(2, -2)}</strong> : s
     ));
 
-    // Itálico: *text*
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(\*.*?\*)/g).map(s => 
       s.startsWith('*') && s.endsWith('*') ? <em key={Math.random()}>{s.slice(1, -1)}</em> : s
     ));
 
-    // Sublinhado: <u>text</u>
     parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(<u>.*?<\/u>)/g).map(s => 
       s.startsWith('<u>') && s.endsWith('</u>') ? <u key={Math.random()}>{s.slice(3, -4)}</u> : s
-    ));
-
-    // Tachado: ~~text~~
-    parts = parts.flatMap(p => typeof p !== 'string' ? p : p.split(/(~~.*?~~)/g).map(s => 
-      s.startsWith('~~') && s.endsWith('~~') ? <del key={Math.random()}>{s.slice(2, -2)}</del> : s
     ));
 
     return parts;
@@ -138,7 +160,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
             </div>
             
             <div className="flex gap-2 shrink-0">
-              <button className="p-3 bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-adventist-blue hover:text-white transition-all">
+              <button onClick={() => window.print()} className="p-3 bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-adventist-blue hover:text-white transition-all">
                 <Printer size={20} />
               </button>
               <button className="p-3 bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-adventist-blue hover:text-white transition-all">
@@ -150,6 +172,22 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, isLoading, err
           <article className="max-w-none mb-12">
             {content.content?.split('\n').map((line: string, i: number) => renderFormattedLine(line, i))}
           </article>
+
+          {/* Galeria de Imagens do Material */}
+          {content.imagens_galeria && content.imagens_galeria.length > 0 && (
+            <div className="my-16 space-y-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ImageIcon className="text-adventist-blue dark:text-adventist-yellow" /> Galeria de Fotos
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {content.imagens_galeria.map((url: string, idx: number) => (
+                  <div key={idx} className="aspect-square rounded-3xl overflow-hidden shadow-lg hover:scale-[1.02] transition-transform cursor-zoom-in border border-slate-100 dark:border-slate-800">
+                    <img src={url} alt={`Galeria ${idx}`} className="w-full h-full object-cover" loading="lazy" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {content.arquivo_url && (
             <div className="mt-12 pt-10 border-t border-slate-100 dark:border-slate-700">
