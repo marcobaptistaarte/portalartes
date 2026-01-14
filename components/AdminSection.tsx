@@ -3,7 +3,8 @@ import {
   FileText, ArrowLeft, Camera, Loader2, Plus, Lock, 
   ShieldCheck, Edit2, RefreshCw, Bold, Italic, Underline, List, ListOrdered, AlignCenter, 
   AlignLeft, AlignRight, AlignJustify, Strikethrough, ChevronDown, ChevronUp, Trash2, 
-  Youtube, Music, Image as ImageIcon, Sparkles, Newspaper, PlayCircle, Link as LinkIcon
+  Youtube, Music, Image as ImageIcon, Sparkles, Newspaper, PlayCircle, Link as LinkIcon,
+  Upload
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType, MuralPost, NewsItem } from '../types';
@@ -27,6 +28,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const muralEditorRef = useRef<HTMLDivElement>(null);
   const newsEditorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [targetEditor, setTargetEditor] = useState<React.RefObject<HTMLDivElement> | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
@@ -87,7 +90,12 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     setExpandedLevels(prev => ({ ...prev, [level]: !prev[level] }));
   };
 
-  // IA Handlers
+  const execCommand = (command: string, value: string = "", ref: React.RefObject<HTMLDivElement> | null) => {
+    if (!ref || !ref.current) return;
+    document.execCommand(command, false, value);
+    ref.current.focus();
+  };
+
   const handleAiVideo = async () => {
     if (!aiLink) return alert("Insira o link do YouTube.");
     setIsAiLoading(true);
@@ -117,11 +125,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     } catch (e) { alert("Erro ao processar link."); } finally { setIsAiLoading(false); }
   };
 
-  const execCommand = (command: string, value: string = "", ref: React.RefObject<HTMLDivElement>) => {
-    document.execCommand(command, false, value);
-    if (ref.current) ref.current.focus();
-  };
-
   const insertEmbedCode = (code: string, ref: React.RefObject<HTMLDivElement>) => {
     if (!ref.current) return;
     ref.current.focus();
@@ -139,11 +142,23 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     }
   };
 
-  const insertImage = (ref: React.RefObject<HTMLDivElement>) => {
-    const url = prompt("Insira a URL da imagem:");
-    if (url) {
-      execCommand('insertImage', url, ref);
+  const triggerImageUpload = (ref: React.RefObject<HTMLDivElement>) => {
+    setTargetEditor(ref);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && targetEditor) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        execCommand('insertImage', base64, targetEditor);
+      };
+      reader.readAsDataURL(file);
     }
+    // Limpar o input para permitir selecionar o mesmo arquivo novamente se necessário
+    e.target.value = '';
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -213,6 +228,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl animate-in fade-in duration-500">
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+      
       <div className="flex items-center justify-between mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold hover:underline"><ArrowLeft size={20} /> Voltar</button>
         <div className="bg-green-500/10 text-green-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase border border-green-500/20 flex items-center gap-2"><ShieldCheck size={14} /> Modo Admin</div>
@@ -302,7 +319,9 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                 </div>
 
                 <div className="flex items-center">
-                  <button type="button" onClick={() => insertImage(activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded text-adventist-blue" title="Adicionar Imagem"><ImageIcon size={18}/></button>
+                  <button type="button" onClick={() => triggerImageUpload(activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded text-adventist-blue flex items-center gap-1" title="Upload de Imagem">
+                    <Upload size={18}/><span className="text-[10px] font-bold">Upload</span>
+                  </button>
                   <button type="button" onClick={() => { const id = prompt('Cole o ID do vídeo do YouTube:'); if(id) insertEmbedCode(`[youtube]${id}[/youtube]`, activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef); }} className="p-2 hover:bg-slate-200 rounded text-red-600" title="YouTube Embed"><Youtube size={18}/></button>
                   <button type="button" onClick={() => { const url = prompt('Cole o ID ou link da Playlist do Spotify:'); if(url) insertEmbedCode(`[spotify]${url}[/spotify]`, activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef); }} className="p-2 hover:bg-slate-200 rounded text-green-600" title="Spotify Embed"><Music size={18}/></button>
                 </div>
