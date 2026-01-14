@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Heart } from 'lucide-react';
 import Header from './components/Header';
@@ -24,7 +23,6 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedMuralPost, setSelectedMuralPost] = useState<MuralPost | null>(null);
   const [selectedNewsItem, setSelectedNewsItem] = useState<NewsItem | null>(null);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   
   const [latestManualPosts, setLatestManualPosts] = useState<any[]>([]);
   const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
@@ -39,10 +37,7 @@ const App: React.FC = () => {
   });
 
   const [selection, setSelection] = useState<SelectionState>({
-    level: null,
-    grade: null,
-    bimester: null,
-    resource: null
+    level: null, grade: null, bimester: null, resource: null
   });
 
   const [content, setContent] = useState<any | null>(null);
@@ -53,12 +48,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error: dbError } = await supabase
-        .from('materiais_pedagogicos')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
+      const { data, error: dbError } = await supabase.from('materiais_pedagogicos').select('*').eq('id', id).maybeSingle();
       if (dbError) throw dbError;
       if (data) {
         setContent({
@@ -68,14 +58,8 @@ const App: React.FC = () => {
           arquivo_url: data.arquivo_url,
           imagens_galeria: data.imagens_galeria
         });
-      } else {
-        setError("Material não encontrado.");
-      }
-    } catch (err) {
-      setError("Erro ao carregar o material.");
-    } finally {
-      setIsLoading(false);
-    }
+      } else setError("Material não encontrado.");
+    } catch (err) { setError("Erro ao carregar o material."); } finally { setIsLoading(false); }
   };
 
   useEffect(() => {
@@ -88,10 +72,6 @@ const App: React.FC = () => {
       } else {
         const validViews: View[] = ['home', 'about', 'privacy', 'contact', 'admin', 'mural', 'mural-detail', 'noticias', 'news-detail', 'app-install'];
         setCurrentView(validViews.includes(hash as View) ? (hash as View) : 'home');
-        if (hash === 'home' || hash === '') {
-          setContent(null);
-          setSelection({ level: null, grade: null, bimester: null, resource: null });
-        }
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -103,36 +83,16 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
-        // Busca 12 Atividades
-        const { data: materials } = await supabase.from('materiais_pedagogicos').select('*').order('created_at', { ascending: false }).limit(12);
-        if (materials) setLatestManualPosts(materials);
-
-        // Busca 6 Notícias/Artigos
-        const { data: news } = await supabase.from('curated_news').select('*').order('created_at', { ascending: false }).limit(6);
-        if (news) {
-          setLatestNews(news.map(n => ({
-            id: n.id,
-            title: n.titulo,
-            summary: n.resumo,
-            imageUrl: n.imagem_url,
-            externalUrl: n.url_externa,
-            date: new Date(n.created_at).toLocaleDateString('pt-BR'),
-            type: n.tipo as 'internal' | 'external',
-            content: n.conteudo,
-            category: n.categoria || 'Notícia'
-          })));
-        }
-
-        // Busca 6 Vídeos Interessantes
-        const { data: vids } = await supabase.from('videos_curadoria').select('*').order('created_at', { ascending: false }).limit(6);
-        if (vids) setLatestVideos(vids);
-
+        const { data: m } = await supabase.from('materiais_pedagogicos').select('*').order('created_at', { ascending: false }).limit(12);
+        if (m) setLatestManualPosts(m);
+        const { data: n } = await supabase.from('curated_news').select('*').order('created_at', { ascending: false }).limit(6);
+        if (n) setLatestNews(n.map(ni => ({ id: ni.id, title: ni.titulo, summary: ni.resumo, imageUrl: ni.imagem_url, externalUrl: ni.url_externa, date: new Date(ni.created_at).toLocaleDateString('pt-BR'), type: ni.tipo as any, category: ni.categoria || 'Notícia' })));
+        const { data: v } = await supabase.from('videos_curadoria').select('*').order('created_at', { ascending: false }).limit(6);
+        if (v) setLatestVideos(v);
       } catch (err) { console.error(err); }
     };
     fetchHomeData();
   }, []);
-
-  const toggleDarkMode = () => setIsDarkMode(prev => !prev);
 
   const handleUpdateSelection = useCallback(async (update: Partial<SelectionState>) => {
     const newState = { ...selection, ...update };
@@ -150,12 +110,12 @@ const App: React.FC = () => {
   const navigateTo = (view: View, data: any = null) => {
     if (view === 'mural-detail') setSelectedMuralPost(data);
     if (view === 'news-detail') setSelectedNewsItem(data);
-    window.location.hash = (view === 'material' && data) ? `#/material/${data.id || data}` : `#/${view}`;
+    window.location.hash = `#/${view}`;
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-slate-950 transition-colors duration-300 font-sans">
-      <Header isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} onGoHome={() => navigateTo('home')} onGoMural={() => navigateTo('mural')} onGoNews={() => navigateTo('noticias')} onGoApp={() => navigateTo('app-install')} />
+      <Header isDarkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} onGoHome={() => navigateTo('home')} onGoMural={() => navigateTo('mural')} onGoNews={() => navigateTo('noticias')} onGoApp={() => navigateTo('app-install')} />
       <main className="flex-grow">
         {currentView === 'home' ? (
           <>
@@ -164,24 +124,23 @@ const App: React.FC = () => {
               latestActivities={latestManualPosts.map(m => ({ id: m.id, level: m.nivel, grade: m.serie, bimester: m.bimestre, resource: m.tipo_recurso, title: m.titulo, content: m.conteudo, date: new Date(m.created_at).toLocaleDateString('pt-BR'), attachments: [] }))}
               latestNews={latestNews}
               latestVideos={latestVideos}
-              onViewActivity={(act) => navigateTo('material', act.id)}
+              onViewActivity={(act) => navigateTo('material', act)}
               onViewNews={(n) => n.type === 'external' ? window.open(n.externalUrl, '_blank') : navigateTo('news-detail', n)}
               onSeeMoreNews={() => navigateTo('noticias')}
             />
             <FilterSection selection={selection} onUpdate={handleUpdateSelection} />
-            <div id="content-area" className="pb-10"><ContentDisplay content={content} isLoading={isLoading} error={error} /></div>
+            <ContentDisplay content={content} isLoading={isLoading} error={error} />
           </>
         ) : (
-          currentView === 'about' ? <AboutSection /> :
-          currentView === 'privacy' ? <PrivacySection /> :
-          currentView === 'contact' ? <ContactSection /> :
           currentView === 'admin' ? <AdminSection onBack={() => navigateTo('home')} /> :
           currentView === 'mural' ? <MuralSection onReadMore={(p) => navigateTo('mural-detail', p)} /> :
           currentView === 'mural-detail' ? <MuralDetail post={selectedMuralPost!} onBack={() => navigateTo('mural')} /> :
           currentView === 'noticias' ? <NewsPage onViewNews={(n) => n.type === 'external' ? window.open(n.externalUrl, '_blank') : navigateTo('news-detail', n)} /> :
           currentView === 'news-detail' ? <NewsDetail news={selectedNewsItem!} onBack={() => navigateTo('noticias')} /> :
-          currentView === 'app-install' ? <AppInstallPage /> :
-          currentView === 'material' ? <ContentDisplay content={content} isLoading={isLoading} error={error} /> : null
+          currentView === 'material' ? <ContentDisplay content={content} isLoading={isLoading} error={error} /> :
+          currentView === 'about' ? <AboutSection /> :
+          currentView === 'privacy' ? <PrivacySection /> :
+          currentView === 'contact' ? <ContactSection /> : <AppInstallPage />
         )}
       </main>
       <footer className="bg-slate-900 text-white py-12 px-4 border-t border-slate-800 text-center space-y-8">
@@ -191,7 +150,12 @@ const App: React.FC = () => {
           <button onClick={() => navigateTo('contact')}>Contato</button>
           <button onClick={() => navigateTo('privacy')}>Privacidade</button>
         </div>
-        <p className="text-slate-400 text-xs">© 2026 Portal de Artes. Idealizado por Marco Baptista. <button onClick={() => navigateTo('admin')} className="ml-4 opacity-50 hover:opacity-100">— Admin —</button></p>
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-slate-400 text-xs">
+            © 2026 Portal de Ensino de Artes. Idealizado por <a href="https://www.instagram.com/marcobaptista.arte/" target="_blank" rel="noopener noreferrer" className="hover:text-adventist-yellow underline decoration-dotted">Marco Baptista</a> e desenvolvido por <a href="https://www.instagram.com/denny.baptista/" target="_blank" rel="noopener noreferrer" className="hover:text-adventist-yellow underline decoration-dotted">Denise Baptista💜</a>.
+          </p>
+          <button onClick={() => navigateTo('admin')} className="text-[10px] text-slate-600 hover:text-adventist-yellow transition-colors font-bold uppercase tracking-widest">— Administração do Portal —</button>
+        </div>
       </footer>
     </div>
   );
