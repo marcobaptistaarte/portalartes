@@ -31,6 +31,9 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
+  
+  // Estados de expansão para a nova estrutura aninhada
+  const [expandedLevels, setExpandedLevels] = useState<Record<string, boolean>>({});
   const [expandedGrades, setExpandedGrades] = useState<Record<string, boolean>>({});
 
   // Verifica se já está autenticado na sessão
@@ -41,15 +44,23 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     }
   }, []);
 
-  const groupedMaterials = recentMaterials.reduce((acc: Record<string, any[]>, mat) => {
-    const key = mat.serie || 'Outros';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(mat);
+  // Agrupamento multinível: Nível -> Série -> Materiais
+  const groupedMaterials = recentMaterials.reduce((acc: Record<string, Record<string, any[]>>, mat) => {
+    const level = mat.nivel || 'Outros';
+    const grade = mat.serie || 'Outros';
+    if (!acc[level]) acc[level] = {};
+    if (!acc[level][grade]) acc[level][grade] = [];
+    acc[level][grade].push(mat);
     return acc;
   }, {});
 
-  const toggleGradeExpansion = (grade: string) => {
-    setExpandedGrades(prev => ({ ...prev, [grade]: !prev[grade] }));
+  const toggleLevelExpansion = (level: string) => {
+    setExpandedLevels(prev => ({ ...prev, [level]: !prev[level] }));
+  };
+
+  const toggleGradeExpansion = (level: string, grade: string) => {
+    const key = `${level}-${grade}`;
+    setExpandedGrades(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const [post, setPost] = useState<Partial<ManualPost>>({
@@ -79,7 +90,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       .replace(/\[justify\](.*?)\[\/justify\]/g, '<div style="text-align: justify;">$1</div>')
       .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: #003366; text-decoration: underline;">$1</a>');
 
-    // Processar listas
     const lines = html.split('\n');
     let inList = false;
     const processedLines = lines.map(line => {
@@ -151,19 +161,18 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       let cleanHtml = fragmentMatch ? fragmentMatch[1] : html;
       
       cleanHtml = cleanHtml
-        .replace(/<o:p>[\s\S]*?<\/o:p>/g, '') // Metadados Office
-        .replace(/class="Mso.*?"/g, '')       // Classes Word
+        .replace(/<o:p>[\s\S]*?<\/o:p>/g, '') 
+        .replace(/class="Mso.*?"/g, '')       
         .replace(/style="[\s\S]*?"/g, (match) => {
-           // Preserva apenas alinhamento de texto se necessário
            return match.includes('text-align') ? match.match(/text-align:\s*(center|right|justify)/) ? `style="${match.match(/text-align:\s*(center|right|justify)/)![0]}"` : '' : '';
         })
-        .replace(/<span[\s\S]*?>/g, '')       // Remove spans poluídos
+        .replace(/<span[\s\S]*?>/g, '')       
         .replace(/<\/span>/g, '')
-        .replace(/\n/g, ' ')                  // Remove quebras de linha que o Word injeta fora das tags
-        .replace(/<p[\s\S]*?>/g, '<div>')     // Converte parágrafos do Word em divisores limpos
+        .replace(/\n/g, ' ')                  
+        .replace(/<p[\s\S]*?>/g, '<div>')     
         .replace(/<\/p>/g, '</div>')
-        .replace(/(<div>\s*<\/div>)+/g, '<br>') // Remove blocos vazios gerados por espaços no Word
-        .replace(/\s\s+/g, ' ')               // Normaliza espaços múltiplos
+        .replace(/(<div>\s*<\/div>)+/g, '<br>') 
+        .replace(/\s\s+/g, ' ')               
         .trim();
 
       document.execCommand('insertHTML', false, cleanHtml);
@@ -286,7 +295,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
         <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold mb-8 hover:underline"><ArrowLeft size={20} /> Voltar</button>
-        <div className={`w-full max-w-md bg-adventist-blue rounded-[3rem] p-10 shadow-2xl transition-all duration-300 ${loginError ? 'translate-x-2 bg-red-900' : ''}`}>
+        <div className={`w-full max-md bg-adventist-blue rounded-[3rem] p-10 shadow-2xl transition-all duration-300 ${loginError ? 'translate-x-2 bg-red-900' : ''}`}>
           <div className="flex flex-col items-center text-center space-y-6">
             <div className="w-20 h-20 bg-adventist-yellow rounded-[2rem] flex items-center justify-center text-adventist-blue shadow-lg"><Lock size={40} /></div>
             <h2 className="text-2xl font-black text-white uppercase tracking-wider">Acesso Restrito</h2>
@@ -305,7 +314,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl animate-in fade-in duration-500">
-      {/* Modal de Confirmação de Exclusão */}
       {deletingId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl border border-slate-100 dark:border-slate-700 text-center space-y-6">
@@ -411,35 +419,66 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                   </button>
                </form>
 
+               {/* Seção de Listagem de Posts com Novo Agrupamento */}
                <div className="pt-10 border-t border-slate-100 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-8">
                     <h4 className="text-sm font-black text-adventist-blue dark:text-adventist-yellow uppercase">Posts Recentes</h4>
                     <button onClick={loadRecentMaterials} className="p-2 text-slate-400 hover:text-adventist-blue transition-colors"><RefreshCw size={18} className={isLoadingMaterials ? 'animate-spin' : ''}/></button>
                   </div>
-                  <div className="space-y-4">
-                    {Object.keys(groupedMaterials).sort().map((grade) => (
-                      <div key={grade} className="bg-slate-50 dark:bg-slate-900/30 rounded-2xl overflow-hidden border">
-                         <button onClick={() => toggleGradeExpansion(grade)} className="w-full flex items-center justify-between p-4 hover:bg-slate-100 transition-colors">
-                           <div className="flex items-center gap-3">
-                             <FileText size={16} className="text-adventist-blue"/>
-                             <h5 className="text-[11px] font-black uppercase tracking-widest">{grade}</h5>
-                             <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded-full font-bold">{groupedMaterials[grade].length}</span>
-                           </div>
-                           {expandedGrades[grade] ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-                         </button>
-                         {expandedGrades[grade] && (
-                           <div className="p-3 pt-0 space-y-2">
-                             {groupedMaterials[grade].map((mat: any) => (
-                               <div key={mat.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 hover:border-adventist-blue border rounded-xl transition-all group shadow-sm">
-                                 <p className="text-xs font-bold truncate pr-4">{mat.titulo}</p>
-                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                   <button onClick={() => startEditing(mat)} className="p-2 bg-slate-50 dark:bg-slate-700 text-adventist-blue rounded-lg hover:bg-adventist-blue hover:text-white transition-colors" title="Editar"><Edit2 size={12}/></button>
-                                   <button onClick={() => setDeletingId(mat.id)} className="p-2 bg-slate-50 dark:bg-slate-700 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Excluir"><Trash2 size={12}/></button>
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                         )}
+                  
+                  <div className="space-y-6">
+                    {Object.keys(groupedMaterials).sort().map((level) => (
+                      <div key={level} className="space-y-2">
+                        <button 
+                          onClick={() => toggleLevelExpansion(level)}
+                          className="w-full flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-800/50 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Layers className="text-adventist-blue dark:text-adventist-yellow" size={20} />
+                            <h5 className="text-xs font-black uppercase tracking-widest">{level}</h5>
+                            <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full font-bold">
+                              {Object.values(groupedMaterials[level]).flat().length}
+                            </span>
+                          </div>
+                          {expandedLevels[level] ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
+                        </button>
+
+                        {expandedLevels[level] && (
+                          <div className="ml-4 space-y-3 pt-2 animate-in fade-in slide-in-from-top-2">
+                            {Object.keys(groupedMaterials[level]).sort().map((grade) => {
+                              const gradeKey = `${level}-${grade}`;
+                              return (
+                                <div key={grade} className="space-y-2">
+                                  <button 
+                                    onClick={() => toggleGradeExpansion(level, grade)}
+                                    className="w-full flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <FileText size={16} className="text-adventist-blue"/>
+                                      <span className="text-[11px] font-bold uppercase tracking-tight">{grade}</span>
+                                      <span className="text-[10px] text-slate-400">({groupedMaterials[level][grade].length})</span>
+                                    </div>
+                                    {expandedGrades[gradeKey] ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                                  </button>
+
+                                  {expandedGrades[gradeKey] && (
+                                    <div className="ml-4 space-y-2 animate-in fade-in slide-in-from-top-1">
+                                      {groupedMaterials[level][grade].map((mat: any) => (
+                                        <div key={mat.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 hover:border-adventist-blue border rounded-xl transition-all group shadow-sm">
+                                          <p className="text-xs font-bold truncate pr-4 text-slate-700 dark:text-slate-300">{mat.titulo}</p>
+                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => startEditing(mat)} className="p-2 bg-white dark:bg-slate-700 text-adventist-blue rounded-lg hover:bg-adventist-blue hover:text-white transition-colors" title="Editar"><Edit2 size={12}/></button>
+                                            <button onClick={() => setDeletingId(mat.id)} className="p-2 bg-white dark:bg-slate-700 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Excluir"><Trash2 size={12}/></button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -455,5 +494,25 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     </div>
   );
 };
+
+// Ícone auxiliar não importado
+const Layers = ({ size, className }: { size?: number, className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width={size || 24} 
+    height={size || 24} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+    <polyline points="2 17 12 22 22 17"></polyline>
+    <polyline points="2 12 12 17 22 12"></polyline>
+  </svg>
+);
 
 export default AdminSection;
