@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [latestManualPosts, setLatestManualPosts] = useState<any[]>([]);
   const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
   const [latestVideos, setLatestVideos] = useState<any[]>([]);
+  const [filteredMaterials, setFilteredMaterials] = useState<any[]>([]);
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -109,13 +110,28 @@ const App: React.FC = () => {
   const handleUpdateSelection = useCallback(async (update: Partial<SelectionState>) => {
     const newState = { ...selection, ...update };
     setSelection(newState);
-    if (newState.level && newState.grade && newState.bimester && newState.resource) {
-      setIsLoading(true);
-      try {
-        const { data } = await supabase.from('materiais_pedagogicos').select('id').eq('nivel', newState.level).eq('serie', newState.grade).eq('bimestre', newState.bimester).eq('tipo_recurso', newState.resource).maybeSingle();
-        if (data) window.location.hash = `#/material/${data.id}`;
-        else setContent({ title: "Em Preparação", content: "Conteúdo não disponível ainda.", tags: ['Aviso'] });
-      } catch (err) { setError('Erro no banco.'); } finally { setIsLoading(false); }
+    
+    if (!newState.level) {
+      setFilteredMaterials([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      let query = supabase.from('materiais_pedagogicos').select('*').eq('nivel', newState.level);
+      
+      if (newState.grade) query = query.eq('serie', newState.grade);
+      if (newState.bimester) query = query.eq('bimestre', newState.bimester);
+      if (newState.resource) query = query.eq('tipo_recurso', newState.resource);
+      
+      const { data, error: dbError } = await query.order('created_at', { ascending: false });
+      if (dbError) throw dbError;
+      setFilteredMaterials(data || []);
+    } catch (err) { 
+      setError('Erro ao carregar materiais filtrados.'); 
+    } finally { 
+      setIsLoading(false); 
     }
   }, [selection]);
 
@@ -141,7 +157,7 @@ const App: React.FC = () => {
               onSeeMoreNews={() => navigateTo('noticias')}
             />
             <FilterSection selection={selection} onUpdate={handleUpdateSelection} />
-            <ContentDisplay content={content} isLoading={isLoading} error={error} />
+            <ContentDisplay filteredMaterials={filteredMaterials} isLoading={isLoading} error={error} content={null} />
           </>
         ) : (
           currentView === 'admin' ? <AdminSection onBack={() => navigateTo('home')} /> :
