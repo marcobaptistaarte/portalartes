@@ -154,7 +154,7 @@ const App: React.FC = () => {
           <p className="text-slate-400 text-xs">
             © 2026 Portal de Ensino de Artes. Idealizado por <a href="https://www.instagram.com/marcobaptista.arte/" target="_blank" rel="noopener noreferrer" className="hover:text-adventist-yellow underline decoration-dotted">Marco Baptista</a> e desenvolvido por <a href="https://www.instagram.com/denny.baptista/" target="_blank" rel="noopener noreferrer" className="hover:text-adventist-yellow underline decoration-dotted">Denise Baptista💜</a>.
           </p>
-          <button onClick={() => navigateTo('admin')} className="text-[10px] text-slate-600 hover:text-adventist-yellow transition-colors font-bold uppercase tracking-widest">— Administração do Portal —</button>
+          <button onClick={() => navigateTo('admin')} className="text-[10px] text-slate-600 hover:text-adventist-yellow transition-colors font-bold uppercase tracking-widest">— Área de Administração —</button>
         </div>
       </footer>
     </div>
