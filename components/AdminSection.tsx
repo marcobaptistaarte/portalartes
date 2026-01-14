@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, ArrowLeft, Camera, Loader2, Plus, Lock, 
   Eye, EyeOff, ShieldCheck, Edit2, X, RefreshCw, Bold, Italic, Underline, List, AlignCenter, 
-  AlignRight, AlignJustify, Strikethrough, Heading1, Heading2, ChevronDown, ChevronUp, Trash2, AlertTriangle, Link as LinkIcon
+  AlignRight, AlignJustify, Strikethrough, Heading1, Heading2, ChevronDown, ChevronUp, Trash2, AlertTriangle, 
+  Link as LinkIcon, Youtube, Music, Image as ImageIcon
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType } from '../types';
@@ -32,11 +33,12 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
   
-  // Estados de expansão para a nova estrutura aninhada
   const [expandedLevels, setExpandedLevels] = useState<Record<string, boolean>>({});
   const [expandedGrades, setExpandedGrades] = useState<Record<string, boolean>>({});
 
-  // Verifica se já está autenticado na sessão
+  const [selectedGalleryFiles, setSelectedGalleryFiles] = useState<File[]>([]);
+  const [existingGalleryUrls, setExistingGalleryUrls] = useState<string[]>([]);
+
   useEffect(() => {
     const isAuth = sessionStorage.getItem(ADMIN_AUTH_KEY);
     if (isAuth === 'true') {
@@ -44,7 +46,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     }
   }, []);
 
-  // Agrupamento multinível: Nível -> Série -> Materiais
   const groupedMaterials = recentMaterials.reduce((acc: Record<string, Record<string, any[]>>, mat) => {
     const level = mat.nivel || 'Outros';
     const grade = mat.serie || 'Outros';
@@ -88,6 +89,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       .replace(/\[center\](.*?)\[\/center\]/g, '<div style="text-align: center;">$1</div>')
       .replace(/\[right\](.*?)\[\/right\]/g, '<div style="text-align: right;">$1</div>')
       .replace(/\[justify\](.*?)\[\/justify\]/g, '<div style="text-align: justify;">$1</div>')
+      .replace(/\[youtube\](.*?)\[\/youtube\]/g, '<div class="youtube-placeholder" data-url="$1" style="background: #eee; padding: 20px; text-align: center; border-radius: 10px; margin: 10px 0;">📹 Vídeo YouTube: $1</div>')
+      .replace(/\[spotify\](.*?)\[\/spotify\]/g, '<div class="spotify-placeholder" data-url="$1" style="background: #1DB954; color: white; padding: 20px; text-align: center; border-radius: 10px; margin: 10px 0;">🎵 Playlist Spotify: $1</div>')
       .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: #003366; text-decoration: underline;">$1</a>');
 
     const lines = html.split('\n');
@@ -115,6 +118,11 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       if (node.nodeType !== Node.ELEMENT_NODE) return "";
       const el = node as HTMLElement;
       const tag = el.tagName.toLowerCase();
+
+      // Trata placeholders de Youtube/Spotify de volta para tags
+      if (el.classList.contains('youtube-placeholder')) return `[youtube]${el.dataset.url}[/youtube]\n`;
+      if (el.classList.contains('spotify-placeholder')) return `[spotify]${el.dataset.url}[/spotify]\n`;
+
       let children = Array.from(el.childNodes).map(processNode).join("");
       
       if (tag === 'strong' || tag === 'b') return `**${children}**`;
@@ -146,8 +154,26 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
   const addLink = () => {
     const url = prompt("Digite a URL (ex: https://google.com):");
+    if (url) execCommand('createLink', url);
+  };
+
+  const addYoutube = () => {
+    const url = prompt("Cole o link do vídeo do YouTube:");
     if (url) {
-      execCommand('createLink', url);
+      const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([\w-]{11})/);
+      const videoId = videoIdMatch ? videoIdMatch[1] : url;
+      const placeholder = `<div class="youtube-placeholder" data-url="${videoId}" contenteditable="false" style="background: #eee; padding: 20px; text-align: center; border-radius: 10px; margin: 10px 0; border: 2px dashed #ccc;">📹 Vídeo YouTube: ${videoId} (Não apague este bloco)</div><p><br></p>`;
+      document.execCommand('insertHTML', false, placeholder);
+    }
+  };
+
+  const addSpotify = () => {
+    const url = prompt("Cole o link da Playlist ou Álbum do Spotify:");
+    if (url) {
+      const spotifyMatch = url.match(/spotify\.com\/(?:intl-[a-z]+\/)?(playlist|album|track|artist)\/([a-zA-Z0-9]+)/);
+      const spotifyId = spotifyMatch ? `${spotifyMatch[1]}/${spotifyMatch[2]}` : url;
+      const placeholder = `<div class="spotify-placeholder" data-url="${spotifyId}" contenteditable="false" style="background: #1DB954; color: white; padding: 20px; text-align: center; border-radius: 10px; margin: 10px 0;">🎵 Playlist Spotify: ${spotifyId} (Não apague este bloco)</div><p><br></p>`;
+      document.execCommand('insertHTML', false, placeholder);
     }
   };
 
@@ -220,6 +246,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       video_url: material.video_url || ''
     });
     setExistingFileUrl(material.arquivo_url);
+    setExistingGalleryUrls(material.imagens_galeria || []);
     if (editorRef.current) {
       editorRef.current.innerHTML = portalTagsToHtml(material.conteudo);
     }
@@ -231,6 +258,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     setPost({ level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Conteúdo', title: '', content: '', video_url: '' });
     if (editorRef.current) editorRef.current.innerHTML = "";
     setExistingFileUrl(null);
+    setSelectedGalleryFiles([]);
+    setExistingGalleryUrls([]);
   };
 
   const handleDeleteMaterial = async (id: string) => {
@@ -259,6 +288,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     try {
       const contentHtml = editorRef.current?.innerHTML || "";
       const contentTags = htmlToPortalTags(contentHtml);
+      
       let fileUrl = existingFileUrl || '';
       if (selectedFile) {
         const fileName = `${Date.now()}-${selectedFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
@@ -267,6 +297,16 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         const { data: { publicUrl } } = supabase.storage.from('materiais').getPublicUrl(`uploads/${fileName}`);
         fileUrl = publicUrl;
       }
+
+      const galleryUrls = [...existingGalleryUrls];
+      for (const file of selectedGalleryFiles) {
+        const fileName = `${Date.now()}-gal-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+        const { error: upErr } = await supabase.storage.from('materiais').upload(`galeria/${fileName}`, file);
+        if (upErr) throw upErr;
+        const { data: { publicUrl } } = supabase.storage.from('materiais').getPublicUrl(`galeria/${fileName}`);
+        galleryUrls.push(publicUrl);
+      }
+
       const payload = {
         titulo: post.title?.trim(),
         nivel: post.level,
@@ -275,12 +315,15 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         tipo_recurso: post.resource,
         conteudo: contentTags,
         arquivo_url: fileUrl,
-        video_url: post.video_url?.trim() || null
+        video_url: post.video_url?.trim() || null,
+        imagens_galeria: galleryUrls.slice(0, 10)
       };
+
       const { error: dbErr } = editingId 
         ? await supabase.from('materiais_pedagogicos').update(payload).eq('id', editingId)
         : await supabase.from('materiais_pedagogicos').insert([payload]);
       if (dbErr) throw dbErr;
+      
       setStatus('success');
       cancelEditing();
       loadRecentMaterials();
@@ -291,11 +334,29 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     }
   };
 
+  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const totalCurrent = selectedGalleryFiles.length + existingGalleryUrls.length;
+    if (totalCurrent + files.length > 10) {
+      alert("Você pode adicionar no máximo 10 imagens.");
+      return;
+    }
+    setSelectedGalleryFiles(prev => [...prev, ...files]);
+  };
+
+  const removeGalleryFile = (index: number) => {
+    setSelectedGalleryFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingGalleryUrl = (index: number) => {
+    setExistingGalleryUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
         <button onClick={onBack} className="flex items-center gap-2 text-adventist-blue dark:text-adventist-yellow font-bold mb-8 hover:underline"><ArrowLeft size={20} /> Voltar</button>
-        <div className={`w-full max-md bg-adventist-blue rounded-[3rem] p-10 shadow-2xl transition-all duration-300 ${loginError ? 'translate-x-2 bg-red-900' : ''}`}>
+        <div className={`w-full max-w-md bg-adventist-blue rounded-[3rem] p-10 shadow-2xl transition-all duration-300 ${loginError ? 'translate-x-2 bg-red-900' : ''}`}>
           <div className="flex flex-col items-center text-center space-y-6">
             <div className="w-20 h-20 bg-adventist-yellow rounded-[2rem] flex items-center justify-center text-adventist-blue shadow-lg"><Lock size={40} /></div>
             <h2 className="text-2xl font-black text-white uppercase tracking-wider">Acesso Restrito</h2>
@@ -388,16 +449,17 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                       <button type="button" onClick={() => execCommand('bold')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Negrito"><Bold size={18}/></button>
                       <button type="button" onClick={() => execCommand('italic')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Itálico"><Italic size={18}/></button>
                       <button type="button" onClick={() => execCommand('underline')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Sublinhado"><Underline size={18}/></button>
-                      <button type="button" onClick={() => execCommand('strikeThrough')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Tachado"><Strikethrough size={18}/></button>
                       <div className="w-px h-6 bg-slate-200 mx-1"></div>
                       <button type="button" onClick={() => execCommand('formatBlock', 'h1')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Título 1"><Heading1 size={18}/></button>
                       <button type="button" onClick={() => execCommand('formatBlock', 'h2')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Título 2"><Heading2 size={18}/></button>
                       <button type="button" onClick={() => execCommand('insertUnorderedList')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Lista"><List size={18}/></button>
                       <button type="button" onClick={addLink} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Adicionar Link"><LinkIcon size={18}/></button>
                       <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                      <button type="button" onClick={addYoutube} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-red-600" title="Embed YouTube"><Youtube size={18}/></button>
+                      <button type="button" onClick={addSpotify} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-green-600" title="Embed Spotify"><Music size={18}/></button>
+                      <div className="w-px h-6 bg-slate-200 mx-1"></div>
                       <button type="button" onClick={() => execCommand('justifyCenter')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Centralizar"><AlignCenter size={18}/></button>
                       <button type="button" onClick={() => execCommand('justifyRight')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Direita"><AlignRight size={18}/></button>
-                      <button type="button" onClick={() => execCommand('justifyFull')} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300" title="Justificar"><AlignJustify size={18}/></button>
                     </div>
                     <div 
                       ref={editorRef}
@@ -406,11 +468,38 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                       className="w-full min-h-[300px] p-6 rounded-b-xl border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-adventist-blue outline-none dark:bg-slate-800 dark:text-white prose dark:prose-invert max-w-none"
                     />
                   </div>
+
+                  <div className="space-y-4">
+                    <label className="text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <ImageIcon size={18} /> Galeria de Imagens (Até 10)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {existingGalleryUrls.map((url, i) => (
+                        <div key={url} className="relative aspect-square rounded-xl overflow-hidden border">
+                          <img src={url} className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => removeExistingGalleryUrl(i)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1"><X size={12}/></button>
+                        </div>
+                      ))}
+                      {selectedGalleryFiles.map((file, i) => (
+                        <div key={i} className="relative aspect-square rounded-xl overflow-hidden border bg-slate-100 flex items-center justify-center">
+                          <ImageIcon className="text-slate-300" />
+                          <button type="button" onClick={() => removeGalleryFile(i)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1"><X size={12}/></button>
+                        </div>
+                      ))}
+                      {(existingGalleryUrls.length + selectedGalleryFiles.length < 10) && (
+                        <label className="aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                          <Plus className="text-slate-400" />
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Add Foto</span>
+                          <input type="file" multiple accept="image/*" onChange={handleGalleryChange} className="hidden" />
+                        </label>
+                      )}
+                    </div>
+                  </div>
                   
                   <div className="p-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-center">
                     <input type="file" onChange={e => setSelectedFile(e.target.files?.[0] || null)} id="file-mat" className="hidden" />
                     <label htmlFor="file-mat" className="cursor-pointer text-sm font-bold text-slate-500 block p-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg">
-                      {selectedFile ? `Selecionado: ${selectedFile.name}` : editingId ? 'Substituir PDF (opcional)' : 'Anexar PDF/Arquivo'}
+                      {selectedFile ? `Selecionado: ${selectedFile.name}` : editingId ? 'Substituir PDF (opcional)' : 'Anexar PDF/Arquivo Principal'}
                     </label>
                   </div>
                   
@@ -419,10 +508,9 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                   </button>
                </form>
 
-               {/* Seção de Listagem de Posts com Novo Agrupamento */}
                <div className="pt-10 border-t border-slate-100 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-8">
-                    <h4 className="text-sm font-black text-adventist-blue dark:text-adventist-yellow uppercase">Posts Recentes</h4>
+                    <h4 className="text-sm font-black text-adventist-blue dark:text-adventist-yellow uppercase">Materiais Publicados</h4>
                     <button onClick={loadRecentMaterials} className="p-2 text-slate-400 hover:text-adventist-blue transition-colors"><RefreshCw size={18} className={isLoadingMaterials ? 'animate-spin' : ''}/></button>
                   </div>
                   
@@ -495,20 +583,8 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   );
 };
 
-// Ícone auxiliar não importado
 const Layers = ({ size, className }: { size?: number, className?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={size || 24} 
-    height={size || 24} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
+  <svg xmlns="http://www.w3.org/2000/svg" width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
     <polyline points="2 17 12 22 22 17"></polyline>
     <polyline points="2 12 12 17 22 12"></polyline>
