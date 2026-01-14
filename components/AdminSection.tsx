@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, ArrowLeft, Camera, Loader2, Plus, Lock, 
-  Eye, EyeOff, ShieldCheck, Edit2, X, RefreshCw, Bold, Italic, Underline, List, AlignCenter, 
-  AlignRight, AlignJustify, Strikethrough, Heading1, Heading2, ChevronDown, ChevronUp, Trash2, AlertTriangle, 
-  Link as LinkIcon, Youtube, Music, Image as ImageIcon, Sparkles, School, User, Newspaper, PlayCircle
+  ShieldCheck, Edit2, RefreshCw, Bold, Italic, Underline, List, ListOrdered, AlignCenter, 
+  AlignLeft, AlignRight, AlignJustify, Strikethrough, ChevronDown, ChevronUp, Trash2, 
+  Youtube, Music, Image as ImageIcon, Sparkles, Newspaper, PlayCircle, Link as LinkIcon
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType, MuralPost, NewsItem } from '../types';
@@ -21,7 +21,6 @@ const ADMIN_AUTH_KEY = 'portal_artes_admin_auth';
 const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('content');
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   
@@ -30,7 +29,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const newsEditorRef = useRef<HTMLDivElement>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
   const [recentMuralPosts, setRecentMuralPosts] = useState<any[]>([]);
   const [recentNews, setRecentNews] = useState<any[]>([]);
@@ -38,14 +36,13 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
   const [isLoadingData, setIsLoadingData] = useState(false);
   
   const [expandedLevels, setExpandedLevels] = useState<Record<string, boolean>>({});
-  const [expandedGrades, setExpandedGrades] = useState<Record<string, boolean>>({});
 
   // States para Formulários
-  const [post, setPost] = useState<Partial<ManualPost>>({
-    level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Conteúdo', title: '', content: '', video_url: ''
+  const [post, setPost] = useState<Partial<ManualPost & { galleryImages: string[] }>>({
+    level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Conteúdo', title: '', content: '', video_url: '', galleryImages: ['', '', '', '', '', '']
   });
   const [muralPost, setMuralPost] = useState<Partial<MuralPost>>({
-    teacherName: '', schoolName: '', level: 'Educação Infantil', grade: '', workTitle: '', description: '', photos: []
+    teacherName: '', schoolName: '', level: 'Educação Infantil', grade: '', workTitle: '', description: '', photos: ['', '', '', '', '', '']
   });
   const [newsPost, setNewsPost] = useState<Partial<NewsItem>>({
     title: '', summary: '', content: '', imageUrl: '', externalUrl: '', category: 'Notícia', type: 'external'
@@ -98,9 +95,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       const metadata = await getVideoMetadata(aiLink);
       if (activeTab === 'content') {
         setPost(prev => ({ ...prev, title: metadata.title, video_url: aiLink }));
-        if (editorRef.current) {
-          editorRef.current.innerHTML = `<h1>${metadata.title}</h1><p>${metadata.summary}</p><h3>Snippet</h3><p>${metadata.snippet}</p><div class="youtube-placeholder" data-url="${metadata.videoId}">📹 Vídeo: ${metadata.videoId}</div>`;
-        }
+        insertEmbedCode(`[youtube]${metadata.videoId}[/youtube]`, editorRef);
       } else {
         setVidPost({ titulo: metadata.title, resumo: metadata.summary, snippet: metadata.snippet, url_video: aiLink, video_id: metadata.videoId });
       }
@@ -127,6 +122,30 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     if (ref.current) ref.current.focus();
   };
 
+  const insertEmbedCode = (code: string, ref: React.RefObject<HTMLDivElement>) => {
+    if (!ref.current) return;
+    ref.current.focus();
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(code);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else {
+      ref.current.innerHTML += `\n${code}`;
+    }
+  };
+
+  const insertImage = (ref: React.RefObject<HTMLDivElement>) => {
+    const url = prompt("Insira a URL da imagem:");
+    if (url) {
+      execCommand('insertImage', url, ref);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('saving');
@@ -136,14 +155,15 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         table = 'materiais_pedagogicos';
         payload = { 
           titulo: post.title, nivel: post.level, serie: post.grade, bimestre: post.bimester, 
-          tipo_recurso: post.resource, conteudo: editorRef.current?.innerHTML, video_url: post.video_url 
+          tipo_recurso: post.resource, conteudo: editorRef.current?.innerHTML, video_url: post.video_url,
+          imagens_galeria: post.galleryImages?.filter(url => !!url) || []
         };
       } else if (activeTab === 'mural') {
         table = 'mural_posts';
         payload = { 
           professor_nome: muralPost.teacherName, escola_nome: muralPost.schoolName, nivel: muralPost.level, 
           serie: muralPost.grade, titulo_trabalho: muralPost.workTitle, descricao: muralEditorRef.current?.innerHTML, 
-          fotos: muralPost.photos 
+          fotos: muralPost.photos?.filter(url => !!url) || []
         };
       } else if (activeTab === 'news') {
         table = 'curated_news';
@@ -163,7 +183,19 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       loadData();
       setEditingId(null);
       setTimeout(() => setStatus('idle'), 3000);
-    } catch (err: any) { setStatus('error'); setErrorMessage(err.message); }
+    } catch (err: any) { setStatus('error'); }
+  };
+
+  const handleImageChange = (index: number, value: string, type: 'content' | 'mural') => {
+    if (type === 'content') {
+      const newImages = [...(post.galleryImages || ['', '', '', '', '', ''])];
+      newImages[index] = value;
+      setPost({ ...post, galleryImages: newImages });
+    } else {
+      const newPhotos = [...(muralPost.photos || ['', '', '', '', '', ''])];
+      newPhotos[index] = value;
+      setMuralPost({ ...muralPost, photos: newPhotos });
+    }
   };
 
   if (!isAuthenticated) return (
@@ -172,7 +204,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         <div className="flex flex-col items-center text-center space-y-6">
           <Lock size={40} className="text-adventist-yellow" />
           <h2 className="text-2xl font-black text-white uppercase tracking-wider">Acesso Restrito</h2>
-          <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && passwordInput === ADMIN_PASSWORD) { setIsAuthenticated(true); sessionStorage.setItem(ADMIN_AUTH_KEY, 'true'); } }} placeholder="Senha" className="w-full p-4 rounded-2xl text-center outline-none focus:ring-2 focus:ring-adventist-yellow" />
+          <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && passwordInput === ADMIN_PASSWORD) { setIsAuthenticated(true); sessionStorage.setItem(ADMIN_AUTH_KEY, 'true'); } }} placeholder="Senha" className="w-full p-4 rounded-2xl text-center outline-none focus:ring-2 focus:ring-adventist-yellow bg-white text-slate-900" />
           <button onClick={() => { if (passwordInput === ADMIN_PASSWORD) { setIsAuthenticated(true); sessionStorage.setItem(ADMIN_AUTH_KEY, 'true'); } else { alert('Senha incorreta!'); } }} className="w-full bg-adventist-yellow text-adventist-blue font-black py-4 rounded-2xl active:scale-95 transition-transform">Acessar Painel</button>
         </div>
       </div>
@@ -197,12 +229,11 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
         <div className="p-8">
           <form onSubmit={handleSave} className="space-y-6">
-            {/* Ferramentas de IA baseadas na aba */}
             {(activeTab === 'news' || activeTab === 'vids' || (activeTab === 'content' && post.resource === 'Vídeo')) && (
               <div className="p-6 bg-adventist-blue/5 rounded-2xl border-2 border-dashed border-adventist-blue/20">
                 <label className="text-[10px] font-bold uppercase block mb-2 text-adventist-blue">Ferramenta de IA: Extrair do Link</label>
                 <div className="flex gap-2">
-                  <input type="text" value={aiLink} onChange={e => setAiLink(e.target.value)} placeholder="Cole o URL aqui..." className="flex-1 p-3 rounded-xl border dark:bg-slate-700 dark:text-white" />
+                  <input type="text" value={aiLink} onChange={e => setAiLink(e.target.value)} placeholder="Cole o URL do YouTube ou Artigo..." className="flex-1 p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
                   <button type="button" onClick={activeTab === 'news' ? handleAiNews : handleAiVideo} disabled={isAiLoading} className="bg-adventist-blue text-white px-6 rounded-xl font-bold flex items-center gap-2">
                     {isAiLoading ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18}/>} Extrair
                   </button>
@@ -210,34 +241,31 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
               </div>
             )}
 
-            {/* Campos Específicos de Materiais */}
             {activeTab === 'content' && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <select value={post.level} onChange={e => setPost({...post, level: e.target.value as EducationLevel, grade: ''})} className="p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
+                <select value={post.level} onChange={e => setPost({...post, level: e.target.value as EducationLevel, grade: ''})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
                   {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
-                <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} className="p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
+                <select value={post.grade} onChange={e => setPost({...post, grade: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
                   <option value="">Série...</option>
                   {(GRADES_BY_LEVEL[post.level as EducationLevel] || []).map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
-                <select value={post.bimester} onChange={e => setPost({...post, bimester: e.target.value as Bimester})} className="p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
+                <select value={post.bimester} onChange={e => setPost({...post, bimester: e.target.value as Bimester})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
                   {BIMESTERS.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
-                <select value={post.resource} onChange={e => setPost({...post, resource: e.target.value as ResourceType})} className="p-3 rounded-xl border dark:bg-slate-700 dark:text-white text-sm">
+                <select value={post.resource} onChange={e => setPost({...post, resource: e.target.value as ResourceType})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
                   {RESOURCE_TYPES.map(r => <option key={r.type} value={r.type}>{r.type}</option>)}
                 </select>
               </div>
             )}
 
-            {/* Campos Específicos do Mural */}
             {activeTab === 'mural' && (
               <div className="grid grid-cols-2 gap-4">
-                <input type="text" placeholder="Nome do Professor" value={muralPost.teacherName} onChange={e => setMuralPost({...muralPost, teacherName: e.target.value})} className="p-3 rounded-xl border dark:bg-slate-700 dark:text-white" />
-                <input type="text" placeholder="Nome da Escola" value={muralPost.schoolName} onChange={e => setMuralPost({...muralPost, schoolName: e.target.value})} className="p-3 rounded-xl border dark:bg-slate-700 dark:text-white" />
+                <input type="text" placeholder="Nome do Professor" value={muralPost.teacherName} onChange={e => setMuralPost({...muralPost, teacherName: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
+                <input type="text" placeholder="Nome da Escola" value={muralPost.schoolName} onChange={e => setMuralPost({...muralPost, schoolName: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
               </div>
             )}
 
-            {/* Título (Comum a quase todos) */}
             <input 
               type="text" 
               placeholder="Título" 
@@ -249,29 +277,70 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                 else if(activeTab === 'news') setNewsPost({...newsPost, title: val});
                 else setVidPost({...vidPost, titulo: val});
               }}
-              className="w-full p-4 rounded-xl border dark:bg-slate-700 dark:text-white font-bold" 
+              className="w-full p-4 rounded-xl border bg-white text-slate-900 border-slate-200 font-bold outline-none focus:ring-2 focus:ring-adventist-blue" 
             />
 
-            {/* Editor de Texto Rico */}
             <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-t-xl border-b-0">
-                <button type="button" onClick={() => execCommand('bold', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"><Bold size={18}/></button>
-                <button type="button" onClick={() => execCommand('italic', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"><Italic size={18}/></button>
-                <button type="button" onClick={() => execCommand('insertUnorderedList', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"><List size={18}/></button>
+              <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-50 border border-slate-200 rounded-t-xl border-b-0 text-slate-700">
+                <div className="flex items-center border-r border-slate-300 pr-2 mr-1">
+                  <button type="button" onClick={() => execCommand('bold', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Negrito"><Bold size={18}/></button>
+                  <button type="button" onClick={() => execCommand('italic', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Itálico"><Italic size={18}/></button>
+                  <button type="button" onClick={() => execCommand('underline', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Sublinhado"><Underline size={18}/></button>
+                  <button type="button" onClick={() => execCommand('strikeThrough', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Riscado"><Strikethrough size={18}/></button>
+                </div>
+                
+                <div className="flex items-center border-r border-slate-300 pr-2 mr-1">
+                  <button type="button" onClick={() => execCommand('justifyLeft', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Esquerda"><AlignLeft size={18}/></button>
+                  <button type="button" onClick={() => execCommand('justifyCenter', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Centro"><AlignCenter size={18}/></button>
+                  <button type="button" onClick={() => execCommand('justifyRight', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Direita"><AlignRight size={18}/></button>
+                  <button type="button" onClick={() => execCommand('justifyFull', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Justificado"><AlignJustify size={18}/></button>
+                </div>
+
+                <div className="flex items-center border-r border-slate-300 pr-2 mr-1">
+                  <button type="button" onClick={() => execCommand('insertUnorderedList', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Lista"><List size={18}/></button>
+                  <button type="button" onClick={() => execCommand('insertOrderedList', '', activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded" title="Lista Numérica"><ListOrdered size={18}/></button>
+                </div>
+
+                <div className="flex items-center">
+                  <button type="button" onClick={() => insertImage(activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef)} className="p-2 hover:bg-slate-200 rounded text-adventist-blue" title="Adicionar Imagem"><ImageIcon size={18}/></button>
+                  <button type="button" onClick={() => { const id = prompt('Cole o ID do vídeo do YouTube:'); if(id) insertEmbedCode(`[youtube]${id}[/youtube]`, activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef); }} className="p-2 hover:bg-slate-200 rounded text-red-600" title="YouTube Embed"><Youtube size={18}/></button>
+                  <button type="button" onClick={() => { const url = prompt('Cole o ID ou link da Playlist do Spotify:'); if(url) insertEmbedCode(`[spotify]${url}[/spotify]`, activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef); }} className="p-2 hover:bg-slate-200 rounded text-green-600" title="Spotify Embed"><Music size={18}/></button>
+                </div>
               </div>
               <div 
                 ref={activeTab === 'news' ? newsEditorRef : activeTab === 'mural' ? muralEditorRef : editorRef} 
                 contentEditable 
-                className="w-full min-h-[300px] p-6 rounded-b-xl border border-slate-200 dark:border-slate-700 outline-none dark:bg-slate-800 dark:text-white prose dark:prose-invert max-w-none" 
+                className="w-full min-h-[350px] p-6 rounded-b-xl border border-slate-200 outline-none bg-white text-slate-900 prose prose-slate max-w-none shadow-inner" 
               />
             </div>
+
+            {(activeTab === 'content' || activeTab === 'mural') && (
+              <div className="p-6 bg-white border border-slate-200 rounded-2xl">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <ImageIcon size={16}/> Galeria de Imagens (Máx 6)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[0, 1, 2, 3, 4, 5].map(idx => (
+                    <div key={idx} className="relative">
+                      <input 
+                        type="text" 
+                        placeholder={`URL da Imagem ${idx + 1}`} 
+                        value={activeTab === 'content' ? (post.galleryImages?.[idx] || '') : (muralPost.photos?.[idx] || '')}
+                        onChange={e => handleImageChange(idx, e.target.value, activeTab === 'content' ? 'content' : 'mural')}
+                        className="w-full p-3 pl-10 text-xs rounded-xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-1 focus:ring-adventist-blue"
+                      />
+                      <LinkIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <button type="submit" disabled={status === 'saving'} className="w-full py-4 bg-adventist-blue text-adventist-yellow rounded-xl font-bold uppercase tracking-widest shadow-lg active:scale-[0.98] transition-all">
               {status === 'saving' ? <Loader2 className="animate-spin mx-auto"/> : editingId ? 'Salvar Alterações' : 'Publicar Conteúdo'}
             </button>
           </form>
 
-          {/* Lista de Itens Existentes (Agrupamento e Gerenciamento) */}
           <div className="mt-12 pt-12 border-t border-slate-100 dark:border-slate-700">
             <h4 className="text-sm font-black text-adventist-blue dark:text-adventist-yellow uppercase mb-6 flex items-center justify-between">
               Itens Publicados Recentemente
@@ -295,7 +364,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                                 <div key={mat.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl">
                                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{mat.titulo}</span>
                                   <div className="flex gap-2">
-                                    <button onClick={() => { setEditingId(mat.id); setPost({title: mat.titulo, level: mat.nivel, grade: mat.serie, bimester: mat.bimestre, resource: mat.tipo_recurso, video_url: mat.video_url}); if(editorRef.current) editorRef.current.innerHTML = mat.conteudo; window.scrollTo({top: 0, behavior: 'smooth'}); }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Edit2 size={14}/></button>
+                                    <button onClick={() => { setEditingId(mat.id); setPost({title: mat.titulo, level: mat.nivel, grade: mat.serie, bimester: mat.bimestre, resource: mat.tipo_recurso, video_url: mat.video_url, galleryImages: mat.imagens_galeria || []}); if(editorRef.current) editorRef.current.innerHTML = mat.conteudo; window.scrollTo({top: 0, behavior: 'smooth'}); }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Edit2 size={14}/></button>
                                     <button onClick={async () => { if(confirm('Excluir este material?')) { await supabase.from('materiais_pedagogicos').delete().eq('id', mat.id); loadData(); } }} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>
                                   </div>
                                 </div>
