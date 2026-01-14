@@ -2,28 +2,29 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { SelectionState, GeneratedContent } from "./types";
 
 /**
- * Auxiliar para limpar e analisar o JSON da resposta do Gemini.
- * Remove blocos de código markdown, citações de busca [1] e limpa espaços extras.
+ * Auxiliar para limpar e analisar o JSON da resposta do Gemini de forma ultra-resiliente.
  */
 const parseGeminiJson = (text: string) => {
   try {
-    // 1. Remove citações de busca (ex: [1], [2]) que o Gemini insere ao usar ferramentas de busca
-    // e que invalidam o JSON.
-    let cleanText = text.replace(/\[\d+\]/g, '');
+    // 1. Limpeza agressiva: remove citações [1], blocos de código markdown e espaços em branco
+    let cleanText = text
+      .replace(/\[\d+\]/g, '') // Remove [1], [2], etc
+      .replace(/```json/g, '')
+      .replace(/```/g, '')
+      .trim();
     
-    // 2. Remove blocos de código markdown se presentes
-    cleanText = cleanText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    // 3. Tenta encontrar o objeto JSON se houver texto adicional ao redor
-    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleanText = jsonMatch[0];
+    // 2. Tenta localizar o primeiro '{' e o último '}' para isolar o objeto
+    const firstBrace = cleanText.indexOf('{');
+    const lastBrace = cleanText.lastIndexOf('}');
+    
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      cleanText = cleanText.substring(firstBrace, lastBrace + 1);
     }
 
     return JSON.parse(cleanText);
   } catch (e) {
-    console.error("Erro ao analisar JSON do Gemini:", text, e);
-    throw new Error("Não foi possível processar a resposta da IA. O formato retornado não é um JSON válido.");
+    console.error("Erro crítico ao analisar JSON do Gemini. Resposta bruta:", text);
+    throw new Error("A IA retornou um formato inesperado. Por favor, tente novamente.");
   }
 };
 
@@ -31,6 +32,7 @@ const parseGeminiJson = (text: string) => {
  * Extrai o ID do vídeo do YouTube de uma URL de forma robusta via Regex.
  */
 const extractYoutubeId = (url: string): string | null => {
+  if (!url) return null;
   const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
   const match = url.match(regExp);
   return (match && match[7].length === 11) ? match[7] : null;
@@ -79,69 +81,68 @@ export const generateEducationalContent = async (selection: SelectionState): Pro
 };
 
 /**
- * Extrai metadados de um vídeo do YouTube de forma robusta usando Google Search.
+ * Extrai metadados de um vídeo do YouTube.
+ * Removido o 'googleSearch' para este caso específico pois o modelo já possui 
+ * conhecimento vasto de URLs públicas e o grounding injeta tokens que quebram o JSON.
  */
 export const getVideoMetadata = async (url: string) => {
-  // Extração imediata do ID via JS para evitar alucinações da IA
   const videoId = extractYoutubeId(url);
-  if (!videoId) throw new Error("URL do YouTube inválida ou não reconhecida.");
+  if (!videoId) throw new Error("URL do YouTube inválida.");
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Usamos gemini-pro para tarefas de busca.
-  // IMPORTANTE: Não usamos responseMimeType: "application/json" aqui porque as anotações 
-  // de busca [1] do Grounding costumam quebrar o parsing estrito. Tratamos o texto manualmente.
-  const prompt = `Analise o vídeo do YouTube: ${url}. 
-  Obtenha o título oficial e crie um resumo pedagógico rico.
-  Retorne EXCLUSIVAMENTE um bloco de código JSON (sem usar citações como [1]) com as seguintes chaves:
-  - "title": O título oficial do vídeo.
-  - "summary": Um resumo de 2 parágrafos sobre o tema.
-  - "snippet": Uma lista curta com os 3 pontos principais.`;
+  // Usamos Flash para extração de dados estruturados por ser mais rápido e preciso no formato
+  const prompt = `Analise as informações públicas do vídeo do YouTube: ${url}.
+  Retorne EXCLUSIVAMENTE um objeto JSON com as seguintes chaves e nada mais:
+  {
+    "title": "Título claro e oficial do vídeo",
+    "summary": "Um resumo pedagógico de 2 parágrafos explicando o valor educacional deste vídeo para aulas de artes",
+    "snippet": "Uma string contendo os 3 pontos principais separados por ponto final"
+  }
+  Não inclua explicações, apenas o JSON.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }]
+        responseMimeType: "application/json"
       }
     });
     
-    // Processamento manual para extrair e limpar o JSON do texto da resposta
     const data = parseGeminiJson(response.text);
     
     return {
-      title: data.title || "Vídeo do YouTube",
-      summary: data.summary || "Sem resumo disponível.",
-      snippet: Array.isArray(data.snippet) ? data.snippet.join(". ") : (data.snippet || ""),
+      title: data.title || "Vídeo Educativo",
+      summary: data.summary || "Resumo em processamento.",
+      snippet: data.snippet || "",
       videoId: videoId
     };
   } catch (error) { 
-    console.error("Erro no getVideoMetadata:", error);
+    console.error("Erro detalhado no getVideoMetadata:", error);
     throw error; 
   }
 };
 
 /**
- * Extrai metadados de uma notícia ou artigo a partir de um link usando Google Search.
+ * Extrai metadados de uma notícia ou artigo a partir de um link.
  */
 export const getNewsMetadata = async (url: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const prompt = `Analise detalhadamente o conteúdo deste artigo ou notícia: ${url}. 
-  Utilize a busca para garantir a precisão.
-  Retorne EXCLUSIVAMENTE um objeto JSON válido (sem citações como [1]) com:
-  - "title": Título original da matéria.
-  - "summary": Resumo estruturado em 3 parágrafos.
-  - "snippet": Lista de destaques.
-  - "category": Classifique estritamente como 'Matéria' ou 'Artigo'.`;
+  const prompt = `Analise este artigo/notícia: ${url}. 
+  Retorne EXCLUSIVAMENTE um objeto JSON com:
+  - "title": Título da matéria.
+  - "summary": Resumo de 3 parágrafos.
+  - "snippet": Destaques principais.
+  - "category": 'Matéria' ou 'Artigo'.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }]
+        responseMimeType: "application/json"
       }
     });
     
@@ -149,7 +150,7 @@ export const getNewsMetadata = async (url: string) => {
     return {
       title: data.title || "Notícia",
       summary: data.summary || "Resumo indisponível.",
-      snippet: Array.isArray(data.snippet) ? data.snippet.join(". ") : (data.snippet || ""),
+      snippet: data.snippet || "",
       category: data.category || 'Matéria'
     };
   } catch (error) { 
