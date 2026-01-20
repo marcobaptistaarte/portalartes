@@ -1,5 +1,5 @@
-import React from 'react';
-import { Download, Share2, Printer, Loader2, BookCheck, FileText, ExternalLink, ImageIcon, ArrowRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { Download, Share2, Printer, Loader2, BookCheck, FileText, ExternalLink, ImageIcon, ArrowRight, X } from 'lucide-react';
 
 interface ContentDisplayProps {
   content: any | null;
@@ -9,6 +9,7 @@ interface ContentDisplayProps {
 }
 
 const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, filteredMaterials = [], isLoading, error }) => {
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   
   const stripFormatting = (text: string) => {
     if (!text) return '';
@@ -133,10 +134,19 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, filteredMateri
     );
   }
 
-  // Caso 1: Exibindo um material específico (Página de Material)
   if (content) {
     return (
       <div className="container mx-auto px-4 py-12 animate-in fade-in zoom-in-95 duration-500">
+        {/* Pop-up de Imagem */}
+        {selectedPhoto && (
+          <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4" onClick={() => setSelectedPhoto(null)}>
+            <button className="absolute top-6 right-6 text-white bg-white/10 p-3 rounded-full hover:bg-white/20 transition-all">
+              <X size={32} />
+            </button>
+            <img src={selectedPhoto} alt="Visualização" className="max-w-full max-h-full rounded-xl shadow-2xl" onClick={e => e.stopPropagation()} />
+          </div>
+        )}
+
         <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-700">
           <div className="p-8 md:p-12">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-10 border-b border-slate-100 dark:border-slate-700">
@@ -174,7 +184,11 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, filteredMateri
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {content.imagens_galeria.map((url: string, idx: number) => (
-                    <div key={idx} className="aspect-square rounded-3xl overflow-hidden shadow-lg hover:scale-[1.02] transition-transform cursor-zoom-in border border-slate-100 dark:border-slate-800">
+                    <div 
+                      key={idx} 
+                      className="aspect-square rounded-3xl overflow-hidden shadow-lg hover:scale-[1.02] transition-transform cursor-zoom-in border border-slate-100 dark:border-slate-800"
+                      onClick={() => setSelectedPhoto(url)}
+                    >
                       <img src={url} alt={`Galeria ${idx}`} className="w-full h-full object-cover" loading="lazy" />
                     </div>
                   ))}
@@ -221,7 +235,6 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, filteredMateri
     );
   }
 
-  // Caso 2: Exibindo Lista de Resultados do Filtro (Página Inicial)
   if (filteredMaterials.length > 0) {
     return (
       <div className="container mx-auto px-4 py-12 animate-in fade-in duration-500">
@@ -263,11 +276,7 @@ const ContentDisplay: React.FC<ContentDisplayProps> = ({ content, filteredMateri
     );
   }
 
-  // Caso 3: Nenhum material encontrado após filtro
   if (filteredMaterials.length === 0 && !isLoading && !error && filteredMaterials !== null) {
-     // Aqui verificamos se já houve uma tentativa de filtro (verificando a prop filteredMaterials)
-     // Se filteredMaterials é um array vazio mas já houve interação (level selecionado), mostramos "Não encontrado"
-     // Se é o estado inicial, mostramos "Aguardando Seleção"
      return (
       <div className="container mx-auto px-4 py-24 text-center">
         <div className="bg-slate-100 dark:bg-slate-800/50 rounded-3xl p-12 max-w-2xl mx-auto border-2 border-dashed border-slate-200 dark:border-slate-700">
