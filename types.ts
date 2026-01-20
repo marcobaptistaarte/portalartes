@@ -26,24 +26,9 @@ export interface Attachment {
   size: number;
 }
 
-export interface MuralPost {
-  id: string;
-  teacherName: string;
-  schoolName: string;
-  level: EducationLevel;
-  grade: string;
-  workTitle: string;
-  description: string;
-  photos: string[];
-  date: string;
-}
-
-export interface UserProfile {
-  name: string;
-  email: string;
-  picture: string;
-}
-
+/**
+ * Interface representing a pedagogical material manually posted.
+ */
 export interface ManualPost {
   id: string;
   level: EducationLevel;
@@ -53,8 +38,21 @@ export interface ManualPost {
   title: string;
   content: string;
   date: string;
-  attachments: Attachment[];
+  attachments?: Attachment[];
   video_url?: string;
+}
+
+export interface MuralPost {
+  id: string;
+  teacherName: string;
+  schoolName: string;
+  level: EducationLevel;
+  grade: string;
+  bimester: Bimester;
+  workTitle: string;
+  description: string;
+  photos: string[];
+  date: string;
 }
 
 export interface NewsItem {
@@ -66,22 +64,13 @@ export interface NewsItem {
   imageUrl: string;
   date: string;
   type: 'internal' | 'external';
-  // Fixed: Added category property to NewsItem interface
   category?: string;
 }
 
-export interface Message {
+export interface VideoCuratory {
   id: string;
-  role: 'user' | 'model';
-  text: string;
-  timestamp: number;
-}
-
-export interface ArtMovement {
-  id: string;
-  name: string;
-  period: string;
-  description: string;
-  image: string;
-  keyFeatures: string[];
+  titulo: string;
+  resumo: string;
+  url_video: string;
+  created_at: string;
 }
