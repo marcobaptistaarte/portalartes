@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { SelectionState, GeneratedContent } from "./types";
 
@@ -19,7 +18,7 @@ const parseGeminiJson = (text: string) => {
     return JSON.parse(cleanText);
   } catch (e) {
     console.error("Critical error parsing JSON from Gemini:", text);
-    throw new Error("A IA retornou um formato inesperado. Por favor, tente novamente ou verifique o link.");
+    throw new Error("A IA retornou um formato inesperado. Verifique o link e tente novamente.");
   }
 };
 
@@ -75,30 +74,24 @@ export const getVideoMetadata = async (url: string) => {
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const prompt = `Acesse e analise as informações reais do vídeo do YouTube no link: ${url}.
-  Utilize a ferramenta de busca para obter o título e a descrição oficial.
-  Com base nisso, retorne EXCLUSIVAMENTE um objeto JSON:
+  const prompt = `Acesse o vídeo do YouTube: ${url}. Use a ferramenta de busca.
+  Retorne um JSON com:
   {
-    "title": "Título exato do vídeo",
-    "summary": "Um resumo pedagógico detalhado de 2 parágrafos. O texto DEVE terminar obrigatoriamente com a frase: Clique no vídeo abaixo para assistir ao conteúdo completo.",
-    "snippet": "Destaques principais"
+    "title": "Título do vídeo",
+    "summary": "Resumo pedagógico (2 parágrafos). Termine com: Clique no vídeo abaixo para assistir ao conteúdo completo."
   }`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
+      config: { tools: [{ googleSearch: {} }] }
     });
     
     const data = parseGeminiJson(response.text);
-    
     return {
       title: data.title || "Vídeo Educativo",
-      summary: data.summary || "Resumo em processamento.",
-      snippet: data.snippet || "",
+      summary: data.summary || "Resumo indisponível.",
       videoId: videoId
     };
   } catch (error) { 
@@ -110,28 +103,25 @@ export const getVideoMetadata = async (url: string) => {
 export const getNewsMetadata = async (url: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const prompt = `Analise este artigo/notícia: ${url}. 
-  Utilize busca para garantir precisão dos dados.
-  Retorne EXCLUSIVAMENTE um objeto JSON com:
-  - "title": Título da matéria.
-  - "summary": Resumo de 3 parágrafos.
-  - "snippet": Destaques principais.
-  - "category": 'Matéria' ou 'Artigo'.`;
+  const prompt = `Analise este link: ${url}. Use a ferramenta de busca.
+  Retorne um JSON com:
+  {
+    "title": "Título da matéria",
+    "summary": "Resumo de 3 parágrafos",
+    "category": "Matéria ou Artigo"
+  }`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
+      config: { tools: [{ googleSearch: {} }] }
     });
     
     const data = parseGeminiJson(response.text);
     return {
       title: data.title || "Notícia",
       summary: data.summary || "Resumo indisponível.",
-      snippet: data.snippet || "",
       category: data.category || 'Matéria'
     };
   } catch (error) { 
