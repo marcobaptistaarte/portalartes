@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, ArrowLeft, Camera, Loader2, Plus, Lock, 
   ShieldCheck, Edit2, RefreshCw, Bold, Italic, Underline, List, ListOrdered, AlignCenter, 
   AlignLeft, AlignRight, AlignJustify, Strikethrough, ChevronDown, ChevronUp, Trash2, 
   Youtube, Music, Image as ImageIcon, Sparkles, Newspaper, PlayCircle, Link as LinkIcon,
-  Upload
+  Upload, Heading1, Heading2, Link
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType, MuralPost, NewsItem } from '../types';
@@ -49,10 +48,10 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     teacherName: '', schoolName: '', level: 'Educação Infantil', grade: '', bimester: 'Anual', workTitle: '', description: '', photos: ['', '', '', '', '', '']
   });
   const [newsPost, setNewsPost] = useState<Partial<NewsItem>>({
-    title: '', summary: '', content: '', imageUrl: '', externalUrl: '', category: 'Matéria', type: 'external'
+    title: '', summary: '', content: '', imageUrl: '', externalUrl: '', category: 'Matéria', type: 'external', level: 'Educação Infantil', grade: '', bimester: 'Anual'
   });
   const [vidPost, setVidPost] = useState<any>({
-    titulo: '', resumo: '', snippet: '', url_video: '', video_id: ''
+    titulo: '', resumo: '', url_video: '', video_id: '', level: 'Educação Infantil', grade: '', bimester: 'Anual'
   });
 
   const [aiLink, setAiLink] = useState('');
@@ -78,10 +77,10 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
   useEffect(() => { if (isAuthenticated) loadData(); }, [isAuthenticated, activeTab]);
 
-  const groupItemsByLevel = (items: any[]) => {
+  const groupItemsByLevelAndGrade = (items: any[]) => {
     return items.reduce((acc: Record<string, Record<string, any[]>>, item) => {
-      const level = item.nivel || 'Outros';
-      const grade = item.serie || 'Outros';
+      const level = item.nivel || item.level || 'Outros';
+      const grade = item.serie || item.grade || 'Outros';
       if (!acc[level]) acc[level] = {};
       if (!acc[level][grade]) acc[level][grade] = [];
       acc[level][grade].push(item);
@@ -99,31 +98,32 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     ref.current.focus();
   };
 
-  const handleAiVideo = async () => {
-    if (!aiLink) return alert("Insira o link do YouTube.");
+  const handleAiExtraction = async () => {
+    if (!aiLink) return alert("Insira o link.");
     setIsAiLoading(true);
     try {
-      const metadata = await getVideoMetadata(aiLink);
-      if (activeTab === 'content') {
-        setPost(prev => ({ ...prev, title: metadata.title, video_url: aiLink }));
-        if (editorRef.current) editorRef.current.innerHTML = `<p>${metadata.summary}</p><p>[youtube]${metadata.videoId}[/youtube]</p>`;
+      if (activeTab === 'news') {
+        const metadata = await getNewsMetadata(aiLink);
+        setNewsPost(prev => ({ ...prev, title: metadata.title, summary: metadata.summary, category: metadata.category as any, externalUrl: aiLink, type: 'external' }));
+        if (newsEditorRef.current) newsEditorRef.current.innerHTML = `<h1>${metadata.title}</h1><p>${metadata.summary}</p>`;
       } else {
-        setVidPost({ titulo: metadata.title, url_video: aiLink, video_id: metadata.videoId });
-        if (vidsEditorRef.current) vidsEditorRef.current.innerHTML = metadata.summary;
+        const metadata = await getVideoMetadata(aiLink);
+        if (activeTab === 'content') {
+          setPost(prev => ({ ...prev, title: metadata.title, video_url: aiLink }));
+          if (editorRef.current) editorRef.current.innerHTML = `<p>${metadata.summary}</p><p>[youtube]${metadata.videoId}[/youtube]</p>`;
+        } else if (activeTab === 'vids') {
+          setVidPost(prev => ({ ...prev, titulo: metadata.title, url_video: aiLink, video_id: metadata.videoId }));
+          if (vidsEditorRef.current) vidsEditorRef.current.innerHTML = metadata.summary;
+        }
       }
       setAiLink('');
     } catch (e: any) { alert("Erro ao processar: " + (e.message || "Tente novamente.")); } finally { setIsAiLoading(false); }
   };
 
-  const handleAiNews = async () => {
-    if (!aiLink) return alert("Insira o link da notícia.");
-    setIsAiLoading(true);
-    try {
-      const metadata = await getNewsMetadata(aiLink);
-      setNewsPost(prev => ({ ...prev, title: metadata.title, summary: metadata.summary, category: metadata.category as any, externalUrl: aiLink, type: 'external' }));
-      if (newsEditorRef.current) newsEditorRef.current.innerHTML = `<h1>${metadata.title}</h1><p>${metadata.summary}</p><h3>Destaques</h3><p>${metadata.snippet}</p>`;
-      setAiLink('');
-    } catch (e) { alert("Erro ao processar link."); } finally { setIsAiLoading(false); }
+  const insertEmbedCode = (code: string, ref: React.RefObject<HTMLDivElement>) => {
+    if (!ref.current) return;
+    ref.current.focus();
+    document.execCommand('insertHTML', false, code);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -139,11 +139,11 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
         payload = { professor_nome: muralPost.teacherName, escola_nome: muralPost.schoolName, nivel: muralPost.level, serie: muralPost.grade, bimestre: muralPost.bimester, titulo_trabalho: muralPost.workTitle, descricao: muralEditorRef.current?.innerHTML, fotos: muralPost.photos?.filter(url => !!url) || [] };
       } else if (activeTab === 'news') {
         table = 'curated_news';
-        payload = { titulo: newsPost.title, resumo: newsPost.summary, conteudo: newsEditorRef.current?.innerHTML, imagem_url: newsPost.imageUrl, url_externa: newsPost.externalUrl, tipo: newsPost.type, categoria: newsPost.category };
+        payload = { titulo: newsPost.title, resumo: newsPost.summary, conteudo: newsEditorRef.current?.innerHTML, imagem_url: newsPost.imageUrl, url_externa: newsPost.externalUrl, tipo: newsPost.type, categoria: newsPost.category, nivel: newsPost.level, serie: newsPost.grade, bimestre: newsPost.bimester };
       } else {
         table = 'videos_curadoria';
         const vId = vidPost.url_video.split('v=')[1]?.split('&')[0] || vidPost.url_video.split('be/')[1] || '';
-        payload = { titulo: vidPost.titulo, url_video: vidPost.url_video, video_id: vId, resumo: vidsEditorRef.current?.innerHTML };
+        payload = { titulo: vidPost.titulo, url_video: vidPost.url_video, video_id: vId, resumo: vidsEditorRef.current?.innerHTML, nivel: vidPost.level, serie: vidPost.grade, bimestre: vidPost.bimester };
       }
 
       const { error } = editingId ? await supabase.from(table).update(payload).eq('id', editingId) : await supabase.from(table).insert([payload]);
@@ -151,7 +151,10 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       setStatus('success');
       loadData();
       setEditingId(null);
-      if (activeTab === 'vids') { setVidPost({ titulo: '', url_video: '' }); if (vidsEditorRef.current) vidsEditorRef.current.innerHTML = ''; }
+      // Limpar formulários
+      setAiLink('');
+      if (activeTab === 'vids') { setVidPost({ titulo: '', url_video: '', level: 'Educação Infantil', grade: '', bimester: 'Anual' }); if (vidsEditorRef.current) vidsEditorRef.current.innerHTML = ''; }
+      if (activeTab === 'news') { setNewsPost({ title: '', summary: '', category: 'Matéria', type: 'external', level: 'Educação Infantil', grade: '', bimester: 'Anual' }); if (newsEditorRef.current) newsEditorRef.current.innerHTML = ''; }
       setTimeout(() => setStatus('idle'), 3000);
     } catch (err: any) { setStatus('error'); }
   };
@@ -216,42 +219,67 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
         <div className="p-8">
           <form onSubmit={handleSave} className="space-y-6">
-            {(activeTab === 'news' || (activeTab === 'content' && post.resource === 'Vídeo') || activeTab === 'vids') && (
-              <div className="p-6 bg-adventist-blue/5 rounded-2xl border-2 border-dashed border-adventist-blue/20">
-                <label className="text-[10px] font-bold uppercase block mb-2 text-adventist-blue">Ferramenta de IA: Extrair do Link</label>
-                <div className="flex gap-2">
-                  <input type="text" value={aiLink} onChange={e => setAiLink(e.target.value)} placeholder="Cole o URL do YouTube ou Artigo..." className="flex-1 p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
-                  <button type="button" onClick={activeTab === 'news' ? handleAiNews : handleAiVideo} disabled={isAiLoading} className="bg-adventist-blue text-white px-6 rounded-xl font-bold flex items-center gap-2 shrink-0">
-                    {isAiLoading ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18}/>} Extrair Dados
-                  </button>
-                </div>
+            <div className="p-6 bg-adventist-blue/5 rounded-2xl border-2 border-dashed border-adventist-blue/20">
+              <label className="text-[10px] font-bold uppercase block mb-2 text-adventist-blue">Extração de Dados (YouTube/Link)</label>
+              <div className="flex gap-2">
+                <input type="text" value={aiLink} onChange={e => setAiLink(e.target.value)} placeholder="Cole o URL aqui..." className="flex-1 p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
+                <button type="button" onClick={handleAiExtraction} disabled={isAiLoading} className="bg-adventist-blue text-white px-6 rounded-xl font-bold flex items-center gap-2 shrink-0">
+                  {isAiLoading ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18}/>} Extrair
+                </button>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <select 
+                value={activeTab === 'content' ? post.level : activeTab === 'mural' ? muralPost.level : activeTab === 'news' ? newsPost.level : vidPost.level} 
+                onChange={e => {
+                  const v = e.target.value as EducationLevel;
+                  if(activeTab === 'content') setPost({...post, level: v, grade: ''});
+                  else if(activeTab === 'mural') setMuralPost({...muralPost, level: v, grade: ''});
+                  else if(activeTab === 'news') setNewsPost({...newsPost, level: v, grade: ''});
+                  else setVidPost({...vidPost, level: v, grade: ''});
+                }} 
+                className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue"
+              >
+                {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+              <select 
+                value={activeTab === 'content' ? post.grade : activeTab === 'mural' ? muralPost.grade : activeTab === 'news' ? newsPost.grade : vidPost.grade} 
+                onChange={e => {
+                  const v = e.target.value;
+                  if(activeTab === 'content') setPost({...post, grade: v});
+                  else if(activeTab === 'mural') setMuralPost({...muralPost, grade: v});
+                  else if(activeTab === 'news') setNewsPost({...newsPost, grade: v});
+                  else setVidPost({...vidPost, grade: v});
+                }} 
+                className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue"
+              >
+                <option value="">Série...</option>
+                {(GRADES_BY_LEVEL[(activeTab === 'content' ? post.level : activeTab === 'mural' ? muralPost.level : activeTab === 'news' ? newsPost.level : vidPost.level) as EducationLevel] || []).map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <select 
+                value={activeTab === 'content' ? post.bimester : activeTab === 'mural' ? muralPost.bimester : activeTab === 'news' ? newsPost.bimester : vidPost.bimester} 
+                onChange={e => {
+                  const v = e.target.value as Bimester;
+                  if(activeTab === 'content') setPost({...post, bimester: v});
+                  else if(activeTab === 'mural') setMuralPost({...muralPost, bimester: v});
+                  else if(activeTab === 'news') setNewsPost({...newsPost, bimester: v});
+                  else setVidPost({...vidPost, bimester: v});
+                }} 
+                className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue"
+              >
+                {BIMESTERS.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+
+            {activeTab === 'content' && (
+              <select value={post.resource} onChange={e => setPost({...post, resource: e.target.value as ResourceType})} className="w-full p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
+                {RESOURCE_TYPES.map(r => <option key={r.type} value={r.type}>{r.type}</option>)}
+              </select>
             )}
 
-            {(activeTab === 'content' || activeTab === 'mural') && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <select value={activeTab === 'content' ? post.level : muralPost.level} onChange={e => activeTab === 'content' ? setPost({...post, level: e.target.value as EducationLevel, grade: ''}) : setMuralPost({...muralPost, level: e.target.value as EducationLevel, grade: ''})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
-                  {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-                <select value={activeTab === 'content' ? post.grade : muralPost.grade} onChange={e => activeTab === 'content' ? setPost({...post, grade: e.target.value}) : setMuralPost({...muralPost, grade: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
-                  <option value="">Série...</option>
-                  {(GRADES_BY_LEVEL[(activeTab === 'content' ? post.level : muralPost.level) as EducationLevel] || []).map(g => <option key={g} value={g}>{g}</option>)}
-                </select>
-                <select value={activeTab === 'content' ? post.bimester : muralPost.bimester} onChange={e => activeTab === 'content' ? setPost({...post, bimester: e.target.value as Bimester}) : setMuralPost({...muralPost, bimester: e.target.value as Bimester})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 text-sm outline-none focus:ring-2 focus:ring-adventist-blue">
-                  {BIMESTERS.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-            )}
-
-            {activeTab === 'mural' && (
-              <div className="grid grid-cols-2 gap-4">
-                <input type="text" placeholder="Nome do Professor" value={muralPost.teacherName} onChange={e => setMuralPost({...muralPost, teacherName: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
-                <input type="text" placeholder="Nome da Escola" value={muralPost.schoolName} onChange={e => setMuralPost({...muralPost, schoolName: e.target.value})} className="p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
-              </div>
-            )}
-
-            {activeTab === 'vids' && (
-              <input type="text" placeholder="Link do Vídeo (YouTube)" value={vidPost.url_video} onChange={e => setVidPost({...vidPost, url_video: e.target.value})} className="w-full p-4 rounded-xl border bg-white text-slate-900 border-slate-200 font-bold outline-none focus:ring-2 focus:ring-adventist-blue" />
+            {(activeTab === 'vids' || activeTab === 'news') && (
+              <input type="text" placeholder="Link (YouTube ou Externo)" value={activeTab === 'news' ? newsPost.externalUrl : vidPost.url_video} onChange={e => activeTab === 'news' ? setNewsPost({...newsPost, externalUrl: e.target.value}) : setVidPost({...vidPost, url_video: e.target.value})} className="w-full p-4 rounded-xl border bg-white text-slate-900 border-slate-200 font-bold outline-none focus:ring-2 focus:ring-adventist-blue" />
             )}
 
             <input type="text" placeholder="Título" value={activeTab === 'content' ? post.title : activeTab === 'mural' ? muralPost.workTitle : activeTab === 'news' ? newsPost.title : vidPost.titulo} 
@@ -269,12 +297,20 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
                 <button type="button" onClick={() => execCommand('bold', '', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><Bold size={18}/></button>
                 <button type="button" onClick={() => execCommand('italic', '', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><Italic size={18}/></button>
                 <button type="button" onClick={() => execCommand('underline', '', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><Underline size={18}/></button>
+                <button type="button" onClick={() => execCommand('strikeThrough', '', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><Strikethrough size={18}/></button>
+                <div className="h-6 w-px bg-slate-300 mx-1"></div>
+                <button type="button" onClick={() => execCommand('formatBlock', 'h1', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><Heading1 size={18}/></button>
+                <button type="button" onClick={() => execCommand('formatBlock', 'h2', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><Heading2 size={18}/></button>
                 <div className="h-6 w-px bg-slate-300 mx-1"></div>
                 <button type="button" onClick={() => execCommand('justifyLeft', '', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><AlignLeft size={18}/></button>
                 <button type="button" onClick={() => execCommand('justifyCenter', '', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><AlignCenter size={18}/></button>
                 <button type="button" onClick={() => execCommand('justifyRight', '', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><AlignRight size={18}/></button>
+                <button type="button" onClick={() => execCommand('justifyFull', '', getCurrentEditorRef())} className="p-2 hover:bg-slate-200 rounded"><AlignJustify size={18}/></button>
                 <div className="h-6 w-px bg-slate-300 mx-1"></div>
+                <button type="button" onClick={() => { const url = prompt('Cole o Link:'); if(url) execCommand('createLink', url, getCurrentEditorRef()); }} className="p-2 hover:bg-slate-200 rounded"><LinkIcon size={18}/></button>
                 <button type="button" onClick={() => { setTargetEditor(getCurrentEditorRef()); fileInputRef.current?.click(); }} className="p-2 hover:bg-slate-200 rounded text-adventist-blue flex items-center gap-1"><Upload size={18}/><span className="text-[10px] font-bold">Imagem</span></button>
+                <button type="button" onClick={() => { const id = prompt('ID do YouTube:'); if(id) insertEmbedCode(`[youtube]${id}[/youtube]`, getCurrentEditorRef()!); }} className="p-2 hover:bg-slate-200 rounded text-red-600"><Youtube size={18}/></button>
+                <button type="button" onClick={() => { const url = prompt('ID do Spotify:'); if(url) insertEmbedCode(`[spotify]${url}[/spotify]`, getCurrentEditorRef()!); }} className="p-2 hover:bg-slate-200 rounded text-green-600"><Music size={18}/></button>
               </div>
               <div ref={getCurrentEditorRef()} contentEditable className="w-full min-h-[350px] p-6 rounded-b-xl border border-slate-200 outline-none bg-white text-slate-900 prose prose-slate max-w-none shadow-inner" />
             </div>
@@ -303,54 +339,53 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
               <button onClick={loadData} className="p-2 text-slate-400 hover:text-adventist-blue transition-colors"><RefreshCw size={18}/></button>
             </h4>
             
-            {(activeTab === 'content' || activeTab === 'mural') ? (
-              Object.entries(groupItemsByLevel(activeTab === 'content' ? recentMaterials : recentMuralPosts)).sort().map(([level, grades]) => (
-                <div key={level} className="mb-4">
-                  <button onClick={() => toggleLevelExpansion(level)} className="w-full flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-900 rounded-2xl font-bold text-xs uppercase hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
-                    {level} {expandedLevels[level] ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-                  </button>
-                  {expandedLevels[level] && (
-                    <div className="pl-4 space-y-2 mt-2">
-                      {Object.entries(grades).map(([grade, items]) => (
-                        <div key={grade}>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase p-2">{grade}</p>
-                          <div className="space-y-1">
-                            {items.map(item => (
-                              <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl">
-                                <span className="text-xs font-bold text-slate-700 dark:text-white">{item.titulo || item.titulo_trabalho}</span>
-                                <div className="flex gap-2">
-                                  <button onClick={() => {
-                                    setEditingId(item.id);
-                                    if(activeTab === 'content') {
-                                      setPost({title: item.titulo, level: item.nivel, grade: item.serie, bimester: item.bimestre, resource: item.tipo_recurso, video_url: item.video_url, galleryImages: item.imagens_galeria || []});
-                                      if(editorRef.current) editorRef.current.innerHTML = item.conteudo;
-                                    } else {
-                                      setMuralPost({workTitle: item.titulo_trabalho, teacherName: item.professor_nome, schoolName: item.escola_nome, level: item.nivel, grade: item.serie, bimester: item.bimestre, photos: item.fotos || []});
-                                      if(muralEditorRef.current) muralEditorRef.current.innerHTML = item.descricao;
-                                    }
-                                    window.scrollTo({top: 0, behavior: 'smooth'});
-                                  }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Edit2 size={14}/></button>
-                                  <button onClick={async () => { if(confirm('Excluir?')) { await supabase.from(activeTab === 'content' ? 'materiais_pedagogicos' : 'mural_posts').delete().eq('id', item.id); loadData(); } }} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>
-                                </div>
+            {Object.entries(groupItemsByLevelAndGrade(activeTab === 'content' ? recentMaterials : activeTab === 'mural' ? recentMuralPosts : activeTab === 'news' ? recentNews : recentVideos)).sort().map(([level, grades]) => (
+              <div key={level} className="mb-4">
+                <button onClick={() => toggleLevelExpansion(level)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-white rounded-2xl font-bold text-xs uppercase hover:bg-slate-50 transition-colors border border-slate-200">
+                  <span className="text-adventist-blue">{level}</span>
+                  <span className="text-adventist-blue">{expandedLevels[level] ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</span>
+                </button>
+                {expandedLevels[level] && (
+                  <div className="pl-4 space-y-2 mt-2">
+                    {Object.entries(grades).map(([grade, items]) => (
+                      <div key={grade}>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase p-2">{grade}</p>
+                        <div className="space-y-1">
+                          {items.map((item: any) => (
+                            <div key={item.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                              <span className="text-xs font-bold text-adventist-blue">{item.titulo || item.titulo_trabalho || item.title}</span>
+                              <div className="flex gap-2">
+                                <button onClick={() => {
+                                  setEditingId(item.id);
+                                  if(activeTab === 'content') {
+                                    setPost({title: item.titulo, level: item.nivel, grade: item.serie, bimester: item.bimestre, resource: item.tipo_recurso, video_url: item.video_url, galleryImages: item.imagens_galeria || []});
+                                    if(editorRef.current) editorRef.current.innerHTML = item.conteudo;
+                                  } else if (activeTab === 'mural') {
+                                    setMuralPost({workTitle: item.titulo_trabalho, teacherName: item.professor_nome, schoolName: item.escola_nome, level: item.nivel, grade: item.serie, bimester: item.bimestre, photos: item.fotos || []});
+                                    if(muralEditorRef.current) muralEditorRef.current.innerHTML = item.descricao;
+                                  } else if (activeTab === 'news') {
+                                    setNewsPost({title: item.titulo, summary: item.resumo, category: item.categoria, externalUrl: item.url_externa, type: item.tipo, level: item.nivel, grade: item.serie, bimester: item.bimestre});
+                                    if(newsEditorRef.current) newsEditorRef.current.innerHTML = item.conteudo;
+                                  } else {
+                                    setVidPost({titulo: item.titulo, url_video: item.url_video, level: item.nivel, grade: item.serie, bimester: item.bimestre});
+                                    if(vidsEditorRef.current) vidsEditorRef.current.innerHTML = item.resumo;
+                                  }
+                                  window.scrollTo({top: 0, behavior: 'smooth'});
+                                }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><Edit2 size={14}/></button>
+                                <button onClick={async () => { 
+                                  const table = activeTab === 'content' ? 'materiais_pedagogicos' : activeTab === 'mural' ? 'mural_posts' : activeTab === 'news' ? 'curated_news' : 'videos_curadoria';
+                                  if(confirm('Excluir?')) { await supabase.from(table).delete().eq('id', item.id); loadData(); } 
+                                }} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              (activeTab === 'news' ? recentNews : recentVideos).map((item: any) => (
-                <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 border dark:border-slate-800 rounded-2xl mb-2">
-                  <span className="text-sm font-bold text-slate-800 dark:text-white">{item.titulo}</span>
-                  <div className="flex gap-2">
-                    <button onClick={async () => { if(confirm('Excluir?')) { await supabase.from(activeTab === 'news' ? 'curated_news' : 'videos_curadoria').delete().eq('id', item.id); loadData(); } }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl"><Trash2 size={18}/></button>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))
-            )}
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
