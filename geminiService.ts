@@ -18,15 +18,8 @@ const parseGeminiJson = (text: string) => {
     return JSON.parse(cleanText);
   } catch (e) {
     console.error("Critical error parsing JSON from Gemini:", text);
-    throw new Error("A IA retornou um formato inesperado. Verifique o link e tente novamente.");
+    throw new Error("A IA retornou um formato inesperado. Verifique os dados e tente novamente.");
   }
-};
-
-const extractYoutubeId = (url: string): string | null => {
-  if (!url) return null;
-  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[7].length === 11) ? match[7] : null;
 };
 
 export const generateEducationalContent = async (selection: SelectionState): Promise<GeneratedContent> => {
@@ -65,67 +58,5 @@ export const generateEducationalContent = async (selection: SelectionState): Pro
   } catch (error) {
     console.error("Error generating content:", error);
     throw error;
-  }
-};
-
-export const getVideoMetadata = async (url: string) => {
-  const videoId = extractYoutubeId(url);
-  if (!videoId) throw new Error("URL do YouTube inválida.");
-
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const prompt = `Acesse o vídeo do YouTube: ${url}. Use a ferramenta de busca.
-  Retorne um JSON com:
-  {
-    "title": "Título do vídeo",
-    "summary": "Resumo pedagógico (2 parágrafos). Termine com: Clique no vídeo abaixo para assistir ao conteúdo completo."
-  }`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: { tools: [{ googleSearch: {} }] }
-    });
-    
-    const data = parseGeminiJson(response.text);
-    return {
-      title: data.title || "Vídeo Educativo",
-      summary: data.summary || "Resumo indisponível.",
-      videoId: videoId
-    };
-  } catch (error) { 
-    console.error("getVideoMetadata error:", error);
-    throw error; 
-  }
-};
-
-export const getNewsMetadata = async (url: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const prompt = `Analise este link: ${url}. Use a ferramenta de busca.
-  Retorne um JSON com:
-  {
-    "title": "Título da matéria",
-    "summary": "Resumo de 3 parágrafos",
-    "category": "Matéria ou Artigo"
-  }`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: { tools: [{ googleSearch: {} }] }
-    });
-    
-    const data = parseGeminiJson(response.text);
-    return {
-      title: data.title || "Notícia",
-      summary: data.summary || "Resumo indisponível.",
-      category: data.category || 'Matéria'
-    };
-  } catch (error) { 
-    console.error("getNewsMetadata error:", error);
-    throw error; 
   }
 };
