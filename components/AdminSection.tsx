@@ -3,13 +3,12 @@ import {
   FileText, ArrowLeft, Camera, Loader2, Plus, Lock, 
   ShieldCheck, Edit2, RefreshCw, Bold, Italic, Underline, List, ListOrdered, AlignCenter, 
   AlignLeft, AlignRight, AlignJustify, Strikethrough, ChevronDown, ChevronUp, Trash2, 
-  Youtube, Music, Image as ImageIcon, Sparkles, Newspaper, PlayCircle, Link as LinkIcon,
-  Upload, Heading1, Heading2, Link
+  Youtube, Music, Image as ImageIcon, Newspaper, PlayCircle, Link as LinkIcon,
+  Upload, Heading1, Heading2
 } from 'lucide-react';
 import { LEVELS, GRADES_BY_LEVEL, BIMESTERS, RESOURCE_TYPES } from '../constants';
 import { ManualPost, EducationLevel, Bimester, ResourceType, MuralPost, NewsItem } from '../types';
 import { supabase } from '../supabaseClient';
-import { getVideoMetadata, getNewsMetadata } from '../geminiService';
 
 interface AdminSectionProps {
   onBack: () => void;
@@ -54,9 +53,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     titulo: '', resumo: '', url_video: '', video_id: '', level: 'Educação Infantil', grade: '', bimester: 'Anual'
   });
 
-  const [aiLink, setAiLink] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
-
   useEffect(() => {
     if (sessionStorage.getItem(ADMIN_AUTH_KEY) === 'true') setIsAuthenticated(true);
   }, []);
@@ -98,28 +94,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
     ref.current.focus();
   };
 
-  const handleAiExtraction = async () => {
-    if (!aiLink) return alert("Insira o link.");
-    setIsAiLoading(true);
-    try {
-      if (activeTab === 'news') {
-        const metadata = await getNewsMetadata(aiLink);
-        setNewsPost(prev => ({ ...prev, title: metadata.title, summary: metadata.summary, category: metadata.category as any, externalUrl: aiLink, type: 'external' }));
-        if (newsEditorRef.current) newsEditorRef.current.innerHTML = `<h1>${metadata.title}</h1><p>${metadata.summary}</p>`;
-      } else {
-        const metadata = await getVideoMetadata(aiLink);
-        if (activeTab === 'content') {
-          setPost(prev => ({ ...prev, title: metadata.title, video_url: aiLink }));
-          if (editorRef.current) editorRef.current.innerHTML = `<p>${metadata.summary}</p><p>[youtube]${metadata.videoId}[/youtube]</p>`;
-        } else if (activeTab === 'vids') {
-          setVidPost(prev => ({ ...prev, titulo: metadata.title, url_video: aiLink, video_id: metadata.videoId }));
-          if (vidsEditorRef.current) vidsEditorRef.current.innerHTML = metadata.summary;
-        }
-      }
-      setAiLink('');
-    } catch (e: any) { alert("Erro ao processar: " + (e.message || "Tente novamente.")); } finally { setIsAiLoading(false); }
-  };
-
   const insertEmbedCode = (code: string, ref: React.RefObject<HTMLDivElement>) => {
     if (!ref.current) return;
     ref.current.focus();
@@ -151,10 +125,10 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
       setStatus('success');
       loadData();
       setEditingId(null);
-      // Limpar formulários
-      setAiLink('');
       if (activeTab === 'vids') { setVidPost({ titulo: '', url_video: '', level: 'Educação Infantil', grade: '', bimester: 'Anual' }); if (vidsEditorRef.current) vidsEditorRef.current.innerHTML = ''; }
       if (activeTab === 'news') { setNewsPost({ title: '', summary: '', category: 'Matéria', type: 'external', level: 'Educação Infantil', grade: '', bimester: 'Anual' }); if (newsEditorRef.current) newsEditorRef.current.innerHTML = ''; }
+      if (activeTab === 'content') { setPost({ level: 'Educação Infantil', grade: '', bimester: '1º bimestre', resource: 'Conteúdo', title: '', content: '', galleryImages: ['', '', '', '', '', ''] }); if (editorRef.current) editorRef.current.innerHTML = ''; }
+      if (activeTab === 'mural') { setMuralPost({ teacherName: '', schoolName: '', level: 'Educação Infantil', grade: '', bimester: 'Anual', workTitle: '', photos: ['', '', '', '', '', ''] }); if (muralEditorRef.current) muralEditorRef.current.innerHTML = ''; }
       setTimeout(() => setStatus('idle'), 3000);
     } catch (err: any) { setStatus('error'); }
   };
@@ -219,16 +193,6 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
 
         <div className="p-8">
           <form onSubmit={handleSave} className="space-y-6">
-            <div className="p-6 bg-adventist-blue/5 rounded-2xl border-2 border-dashed border-adventist-blue/20">
-              <label className="text-[10px] font-bold uppercase block mb-2 text-adventist-blue">Extração de Dados (YouTube/Link)</label>
-              <div className="flex gap-2">
-                <input type="text" value={aiLink} onChange={e => setAiLink(e.target.value)} placeholder="Cole o URL aqui..." className="flex-1 p-3 rounded-xl border bg-white text-slate-900 border-slate-200 outline-none focus:ring-2 focus:ring-adventist-blue" />
-                <button type="button" onClick={handleAiExtraction} disabled={isAiLoading} className="bg-adventist-blue text-white px-6 rounded-xl font-bold flex items-center gap-2 shrink-0">
-                  {isAiLoading ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18}/>} Extrair
-                </button>
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <select 
                 value={activeTab === 'content' ? post.level : activeTab === 'mural' ? muralPost.level : activeTab === 'news' ? newsPost.level : vidPost.level} 
@@ -341,7 +305,7 @@ const AdminSection: React.FC<AdminSectionProps> = ({ onBack }) => {
             
             {Object.entries(groupItemsByLevelAndGrade(activeTab === 'content' ? recentMaterials : activeTab === 'mural' ? recentMuralPosts : activeTab === 'news' ? recentNews : recentVideos)).sort().map(([level, grades]) => (
               <div key={level} className="mb-4">
-                <button onClick={() => toggleLevelExpansion(level)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-white rounded-2xl font-bold text-xs uppercase hover:bg-slate-50 transition-colors border border-slate-200">
+                <button onClick={() => toggleLevelExpansion(level)} className="w-full flex items-center justify-between p-4 bg-white rounded-2xl font-bold text-xs uppercase hover:bg-slate-50 transition-colors border border-slate-200">
                   <span className="text-adventist-blue">{level}</span>
                   <span className="text-adventist-blue">{expandedLevels[level] ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</span>
                 </button>
